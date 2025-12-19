@@ -37,6 +37,7 @@ import { useRoute } from 'vue-router';
 import { createDonation } from '@/api/public.api';
 import { useUserStore } from '@/stores/userStore';
 import { useAuthStore } from '@/stores/authStore';
+import { appendDevDonation } from '@/mocks/scenarios';
 
 const route = useRoute();
 const userStore = useUserStore();
@@ -62,8 +63,21 @@ onMounted(async () => {
 });
 
 const submit = async () => {
+  if (import.meta.env.DEV) {
+    const donation = {
+      id: `dev-don-${Date.now()}`,
+      campaignId: form.campaignId,
+      amount: form.amount,
+      date: new Date().toISOString()
+    };
+    appendDevDonation(donation);
+    userStore.donations.unshift(donation);
+    alert('Đã tạo giao dịch (DEV) thành công');
+    return;
+  }
+
   await createDonation({ ...form });
-  alert('Đã tạo giao dịch mock/real thành công');
+  alert('Đã tạo giao dịch thành công');
 };
 </script>
 

@@ -7,12 +7,14 @@
       </RouterView>
     </main>
     <CommonFooter />
+    <ChatbotWidget />
   </div>
 </template>
 
 <script setup>
 import CommonHeader from './components/common/Header.vue';
 import CommonFooter from './components/common/Footer.vue';
+import ChatbotWidget from './components/chatbot/ChatbotWidget.vue';
 import { useRoute } from 'vue-router';
 
 

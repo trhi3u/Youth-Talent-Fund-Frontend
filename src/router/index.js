@@ -61,6 +61,14 @@ const roleRedirect = {
   STAFF: '/staffLogin'
 };
 
+const normalizeRole = role => (role || '').replace(/^ROLE_/i, '').toUpperCase();
+
+const roleMatches = (required, actual) => {
+  if (!required) return true;
+  return normalizeRole(required) === normalizeRole(actual);
+};
+
+
 router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
   const requiredRole = to.meta.requiresRole;
@@ -68,8 +76,8 @@ router.beforeEach((to, from, next) => {
   if (!requiredRole) return next();
 
   const role = auth.role;
-  if (!role || role !== requiredRole) {
-    return next(roleRedirect[requiredRole] || '/login');
+  if (!role || !roleMatches(requiredRole, role)) {
+    return next(roleRedirect[normalizeRole(requiredRole)] || '/login');
   }
 
   return next();

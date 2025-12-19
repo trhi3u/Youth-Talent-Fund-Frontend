@@ -1,7 +1,7 @@
 <template>
   <article class="campaign-card card" :class="{ loading }">
     <div class="cover" :style="coverStyle">
-      <div class="status" :class="normalized.status?.toLowerCase()">{{ statusText }}</div>
+      <div class="badge" v-if="normalized.category">{{ normalized.category }}</div>
       <div class="tag" v-if="daysLeft !== null">{{ daysLeft }} ngày còn lại</div>
     </div>
     <div class="content">
@@ -31,6 +31,11 @@
         <span class="sub" v-else>Kết thúc: {{ endDateText }}</span>
       </div>
 
+      <div class="actions" v-if="!loading">
+        <button class="btn primary" @click="goDetail">Chi tiết</button>
+        <button class="btn ghost" @click="goDonate">Ủng hộ</button>
+      </div>
+
       <slot name="actions" v-if="!loading" />
     </div>
   </article>
@@ -38,6 +43,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import fallbackImage from '@/assets/image/background.png';
 
 const props = defineProps({
@@ -54,6 +60,8 @@ const normalized = computed(() => {
     title: data.title || data.name || 'Chiến dịch',
     description: data.description || data.story || '',
     status: data.status || 'PENDING',
+    category: data.category || data.categoryName || data.topic || '',
+    campaignCode: data.campaignCode || data.code || data.id,
     targetAmount,
     currentAmount,
     totalDonations: data.totalDonations ?? data.totalDoantions ?? null,
@@ -69,6 +77,19 @@ const progress = computed(() => {
   return Math.min(100, Math.round((raised / goal) * 100));
 });
 
+const router = useRouter();
+const goDetail = () => {
+  const code = normalized.value.campaignCode;
+  if (!code) return;
+  router.push(`/campaign/${code}`);
+};
+
+const goDonate = () => {
+  const code = normalized.value.campaignCode;
+  if (!code) return;
+  router.push(`/campaign/${code}?mode=donation`);
+};
+
 const daysLeft = computed(() => {
   if (!normalized.value.endDate) return null;
   const end = new Date(normalized.value.endDate);
@@ -80,15 +101,6 @@ const daysLeft = computed(() => {
 const endDateText = computed(() => {
   if (!normalized.value.endDate) return 'Đang cập nhật';
   return new Date(normalized.value.endDate).toLocaleDateString('vi-VN');
-});
-
-const statusText = computed(() => {
-  const status = (normalized.value.status || '').toLowerCase();
-  if (status === 'in_progress' || status === 'in-progress') return 'Đang hoạt động';
-  if (status === 'pending') return 'Đang chờ';
-  if (status === 'completed') return 'Đã hoàn thành';
-  if (status === 'on_hold' || status === 'on-hold') return 'Tạm dừng';
-  return normalized.value.status || 'Đang mở';
 });
 
 const coverStyle = computed(() => ({
@@ -115,7 +127,7 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
   height: 180px;
 }
 
-.status {
+.badge {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -126,12 +138,6 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
   font-weight: 700;
   text-transform: capitalize;
 }
-
-.status.in-progress { color: #15919b; }
-.status.pending { color: #f4a11a; }
-.status.completed { color: #2e7d32; }
-.status.cancelled { color: #b42318; }
-.status.on-hold { color: #6b7280; }
 
 .tag {
   position: absolute;
@@ -230,6 +236,36 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
 
 .skeleton.title {
   height: 22px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btn {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+.btn:hover { transform: translateY(-1px); }
+
+.btn.primary {
+  background: linear-gradient(90deg, #09d1c7 0%, #46dfb1 100%);
+  color: #fff;
+  border-color: rgba(9, 209, 199, 0.35);
+}
+
+.btn.ghost {
+  background: #f2fbf8;
+  color: var(--primary-strong);
+  border-color: rgba(12, 100, 120, 0.18);
 }
 
 @keyframes pulse {

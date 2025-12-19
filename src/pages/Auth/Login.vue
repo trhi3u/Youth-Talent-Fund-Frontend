@@ -72,9 +72,10 @@ const submit = async () => {
   successMessage.value = '';
   try {
     const res = await auth.login({ email: email.value, password: password.value });
-    const token = res?.body?.accessToken || res?.token;
-    const userInfo = res?.body?.userInfo || res?.user;
-    auth.setAuth({ token, role: userInfo?.roles?.[0] || res?.role || '', user: userInfo });
+    const token = res?.accessToken || res?.token || res?.body?.accessToken;
+    const userInfo = res?.userInfo || res?.user || res?.body?.userInfo;
+    const role = userInfo?.roles?.[0] || res?.role || '';
+    auth.setAuth({ token, role, user: userInfo });
     successMessage.value = 'Đăng nhập thành công';
     router.push('/user');
   } catch (err) {

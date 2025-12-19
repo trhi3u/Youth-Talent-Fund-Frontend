@@ -16,26 +16,43 @@
 
       <SearchBar class="search" />
 
-      <div class="actions">
-        <span v-if="role" class="pill">{{ role }}</span>
-        <span v-if="userName" class="user">{{ userName }}</span>
-        <RouterLink v-if="role === 'ADMIN'" class="btn ghost" to="/admin">Admin</RouterLink>
-        <RouterLink v-else-if="role === 'STAFF'" class="btn ghost" to="/staff">Staff</RouterLink>
-        <RouterLink v-else-if="role === 'USER'" class="btn ghost" to="/user">Tài khoản</RouterLink>
-        <template v-if="isAuthenticated">
-          <button class="btn primary" @click="logout">Đăng xuất</button>
-        </template>
-        <template v-else>
-          <RouterLink class="btn ghost" to="/login">Đăng nhập</RouterLink>
-          <RouterLink class="btn primary" to="/register">Đăng ký</RouterLink>
-        </template>
+      <div class="actions" v-if="!isAuthenticated">
+        <RouterLink class="btn ghost" to="/login">Đăng nhập</RouterLink>
+        <RouterLink class="btn primary" to="/register">Đăng ký</RouterLink>
+      </div>
+
+      <div class="actions user-wrapper" v-else>
+        <div class="user-menu" ref="avatarEl" @click="toggleDropdown">
+          <div class="avatar" :class="{ placeholder: !avatarUrl }" :style="avatarStyle">
+            <span v-if="!avatarUrl">{{ initials }}</span>
+          </div>
+          <span class="name">{{ displayName }}</span>
+          <span class="chevron" aria-hidden="true">▾</span>
+        </div>
+
+        <div v-if="open" class="dropdown" ref="dropdownEl">
+          <template v-if="isUser">
+            <RouterLink to="/user/profile" class="item">Thông tin cá nhân</RouterLink>
+            <RouterLink to="/user/donations" class="item">Lịch sử quyên góp</RouterLink>
+            <RouterLink to="/user/change-password" class="item">Đổi mật khẩu</RouterLink>
+            <div class="divider" />
+            <button class="item danger" @click="handleLogout">Đăng xuất</button>
+          </template>
+
+          <template v-else-if="isAdmin || isStaff">
+            <div class="item label">{{ displayName }}</div>
+            <div class="item role">{{ roleLabel }}</div>
+            <div class="divider" />
+            <button class="item danger" @click="handleLogout">Đăng xuất</button>
+          </template>
+        </div>
       </div>
     </div>
   </header>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import SearchBar from '@/components/common/SearchBar.vue';
@@ -43,9 +60,29 @@ import SearchBar from '@/components/common/SearchBar.vue';
 const router = useRouter();
 const auth = useAuthStore();
 
-const role = computed(() => auth.role || '');
+const open = ref(false);
+const avatarEl = ref(null);
+const dropdownEl = ref(null);
+
+const user = computed(() => auth.userInfo || auth.user || {});
+const roles = computed(() => user.value?.roles || []);
+const primaryRole = computed(() => roles.value[0] || auth.role || '');
+
 const isAuthenticated = computed(() => auth.isAuthenticated);
-const userName = computed(() => auth.userInfo?.name || auth.userInfo?.email || '');
+const isUser = computed(() => roles.value.includes('ROLE_USER') || primaryRole.value === 'USER');
+const isAdmin = computed(() => roles.value.includes('ROLE_ADMIN') || primaryRole.value === 'ADMIN');
+const isStaff = computed(() => roles.value.includes('ROLE_STAFF') || primaryRole.value === 'STAFF');
+
+const displayName = computed(() => user.value.fullName || user.value.name || user.value.email || 'Người dùng');
+const avatarUrl = computed(() => user.value.avatarUrl || '');
+const initials = computed(() => (displayName.value || 'ND').trim().slice(0, 1).toUpperCase());
+const avatarStyle = computed(() => (avatarUrl.value ? { backgroundImage: `url(${avatarUrl.value})` } : {}));
+
+const roleLabel = computed(() => {
+  if (isAdmin.value) return 'Admin';
+  if (isStaff.value) return 'Staff';
+  return '';
+});
 
 const baseNav = [
   { label: 'Trang chủ', to: '/' },
@@ -54,18 +91,41 @@ const baseNav = [
 ];
 
 const roleNav = computed(() => {
-  if (role.value === 'ADMIN') return [...baseNav, { label: 'Quản trị', to: '/admin' }];
-  if (role.value === 'STAFF') return [...baseNav, { label: 'Staff', to: '/staff' }];
-  if (role.value === 'USER') return [...baseNav, { label: 'Tài khoản', to: '/user' }];
-  return baseNav;
+  if (isAdmin.value) return [...baseNav, { label: 'Quản trị', to: '/admin' }];
+  if (isStaff.value) return [...baseNav, { label: 'Staff', to: '/staff' }];
+  return baseNav; 
 });
 
 const navItems = computed(() => roleNav.value);
 
-const logout = () => {
+const toggleDropdown = () => {
+  open.value = !open.value;
+};
+
+const closeDropdown = () => {
+  open.value = false;
+};
+
+const onClickOutside = event => {
+  if (!open.value) return;
+  const target = event.target;
+  if (avatarEl.value?.contains(target) || dropdownEl.value?.contains(target)) return;
+  closeDropdown();
+};
+
+const handleLogout = () => {
   auth.logout();
+  closeDropdown();
   router.push('/');
 };
+
+onMounted(() => {
+  window.addEventListener('click', onClickOutside);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', onClickOutside);
+});
 </script>
 
 <style scoped lang="scss">
@@ -158,6 +218,97 @@ const logout = () => {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+.user-wrapper {
+  position: relative;
+}
+
+.user-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(12, 100, 120, 0.06);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(12, 100, 120, 0.1);
+  display: grid;
+  place-items: center;
+  color: #0c6478;
+  font-weight: 700;
+}
+
+.avatar.placeholder {
+  border: 1px dashed rgba(12, 100, 120, 0.25);
+}
+
+.name {
+  font-weight: 700;
+  color: var(--primary-strong);
+}
+
+.chevron {
+  font-size: 12px;
+  color: rgba(12, 100, 120, 0.7);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid rgba(12, 100, 120, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  z-index: 20;
+}
+
+.item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #0c6478;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+}
+
+.item:hover {
+  background: rgba(9, 209, 199, 0.08);
+}
+
+.item.danger {
+  color: #b42318;
+}
+
+.item.label {
+  cursor: default;
+  font-weight: 700;
+}
+
+.item.role {
+  cursor: default;
+  color: rgba(12, 100, 120, 0.75);
+}
+
+.divider {
+  height: 1px;
+  background: rgba(12, 100, 120, 0.12);
+  margin: 4px 0;
 }
 
 .btn {
