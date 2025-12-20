@@ -3,6 +3,9 @@ import { useAuthStore } from '@/stores/authStore';
 
 const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior() {
+    return { top: 0 };
+  },
   routes: [
     { path: '/', name: 'home', component: () => import('@/pages/Home/Home.vue') },
     { path: '/about', name: 'about', component: () => import('@/pages/Home/AboutUs.vue') },
@@ -76,7 +79,7 @@ router.beforeEach((to, from, next) => {
   if (!requiredRole) return next();
 
   const role = auth.role;
-  if (!role || !roleMatches(requiredRole, role)) {
+  if (!role || !auth.token || !roleMatches(requiredRole, role)) {
     return next(roleRedirect[normalizeRole(requiredRole)] || '/login');
   }
 

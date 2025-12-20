@@ -28,7 +28,11 @@
           />
         </label>
 
-        <div class="actions">
+        <div class="actions-row">
+          <label class="remember">
+            <input type="checkbox" v-model="rememberMe" />
+            <span>Ghi nhớ đăng nhập</span>
+          </label>
           <RouterLink class="link" to="/forgot-password">Quên mật khẩu?</RouterLink>
         </div>
 
@@ -59,6 +63,7 @@ const password = ref('');
 const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
+const rememberMe = ref(false);
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -71,11 +76,7 @@ const submit = async () => {
   errorMessage.value = '';
   successMessage.value = '';
   try {
-    const res = await auth.login({ email: email.value, password: password.value });
-    const token = res?.accessToken || res?.token || res?.body?.accessToken;
-    const userInfo = res?.userInfo || res?.user || res?.body?.userInfo;
-    const role = userInfo?.roles?.[0] || res?.role || '';
-    auth.setAuth({ token, role, user: userInfo });
+    await auth.login({ email: email.value, password: password.value, rememberMe: rememberMe.value });
     successMessage.value = 'Đăng nhập thành công';
     router.push('/user');
   } catch (err) {
@@ -166,14 +167,23 @@ input.error {
   background: #fff6f6;
 }
 
-.actions {
+.actions-row {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .link {
   color: #0b6c7f;
   font-weight: 600;
+}
+
+.remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #35516d;
 }
 
 .btn {

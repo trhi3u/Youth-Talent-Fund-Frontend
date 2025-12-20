@@ -12,11 +12,9 @@
     </div>
     <div class="stat-row">
       <div v-for="item in stats" :key="item.label" class="stat-item">
-        <div class="stat-icon" />
-        <div>
-          <div class="stat-value">{{ item.value }}</div>
-          <div class="stat-label">{{ item.label }}</div>
-        </div>
+        <div class="stat-icon">{{ item.icon }}</div>
+        <div class="stat-value">{{ item.value }}</div>
+        <div class="stat-label">{{ item.label }}</div>
       </div>
     </div>
     <section class="section campaigns">
@@ -56,10 +54,10 @@ import fallbackImage from '@/assets/image/background.png';
 import heroBg from '@/assets/image/background.png';
 
 const stats = [
-  { label: 'Tổng quỹ góp', value: '2.5 Tỷ VND' },
-  { label: 'Nhà hảo tâm', value: '10,000' },
-  { label: 'Chiến dịch thành công', value: '100' },
-  { label: 'Tài năng trẻ được hỗ trợ', value: '1,000' }
+  { label: 'Tổng quỹ góp', value: '2.5 Tỷ VND', icon: '💰' },
+  { label: 'Nhà hảo tâm', value: '10,000', icon: '🤝' },
+  { label: 'Chiến dịch thành công', value: '100', icon: '🏆' },
+  { label: 'Tài năng trẻ được hỗ trợ', value: '1,000', icon: '🌱' }
 ];
 
 const route = useRoute();
@@ -203,17 +201,20 @@ h1 {
 
 .stat-item {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+  justify-items: center;
 }
 
 .stat-icon {
-  width: 20px;
-  height: 20px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
+  display: grid;
+  place-items: center;
   background: linear-gradient(135deg, #09d1c7 0%, #46dfb1 100%);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  font-size: 18px;
 }
 
 .stat-value {
