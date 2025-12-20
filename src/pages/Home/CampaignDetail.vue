@@ -482,6 +482,7 @@ watch(
 
 .form-grid input[type='number'] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .form-grid textarea {

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { sendChatMessage } from '@/api/chat.api';
+import { sendChatMessage } from '@/api/public.api';
 
 const FALLBACK = 'Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau.';
 
