@@ -59,31 +59,24 @@ export const useAuthStore = defineStore('auth', {
     },
     async login(payload) {
       const rememberMe = Boolean(payload?.rememberMe);
-      if (import.meta.env.DEV) {
-        const email = payload?.email || payload?.username || 'user@example.com';
-        const name = payload?.fullName || payload?.name || email.split('@')[0] || 'Người dùng';
-        const dev = {
-          accessToken: 'dev-token-any-login',
-          userInfo: {
-            id: 'dev-user-any',
-            fullName: name,
-            email,
-            avatarUrl: null,
-            roles: ['ROLE_USER']
-          },
-          role: 'USER'
-        };
-
-        this.setAuth({ token: dev.accessToken, role: dev.role, user: dev.userInfo, rememberMe });
-        return dev;
-      }
-
+      console.log('[AuthStore] Calling login API with:', { email: payload?.email });
+      
       const data = await loginApi(payload);
+      console.log('[AuthStore] Login API response:', data);
+      
       const accessToken = data?.accessToken || data?.token;
       const userInfo = data?.userInfo || data?.user;
       const role = normalizeRole(userInfo?.roles?.[0] || data?.role || '');
 
+      console.log('[AuthStore] Extracted:', { accessToken: accessToken?.substring(0, 20) + '...', role, userInfo });
+
+      if (!accessToken) {
+        console.error('[AuthStore] No access token in response');
+        throw new Error(data?.message || 'Đăng nhập thất bại');
+      }
+
       this.setAuth({ token: accessToken, role, user: userInfo, rememberMe });
+      console.log('[AuthStore] Auth state set. Token stored:', Boolean(this.token));
       return { accessToken, userInfo, role };
     }
   }

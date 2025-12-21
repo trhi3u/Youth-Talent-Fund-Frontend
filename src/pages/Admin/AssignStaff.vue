@@ -37,7 +37,7 @@ onMounted(() => {
 
 const submit = async () => {
   await adminStore.assign({ ...selection });
-  alert('Đã phân công (mock/real)');
+  alert('Đã phân công thành công');
 };
 </script>
 

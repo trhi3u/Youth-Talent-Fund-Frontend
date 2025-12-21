@@ -169,7 +169,7 @@
 
           <div v-else class="skeleton tall" />
 
-          <button class="btn primary" :disabled="loading" @click="goDonation">Ủng hộ</button>
+          <button class="btn primary" :disabled="loading || isCompleted" @click="goDonation">{{ isCompleted ? 'Đã hoàn thành' : 'Ủng hộ' }}</button>
         </div>
       </div>
     </div>
@@ -179,8 +179,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import http from '@/api/http';
-import { getDevCampaignById } from '@/mocks/scenarios';
+import { createDonation, getCampaignDetail } from '@/api/public.api';
 import fallbackImage from '@/assets/image/background.png';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -220,6 +219,14 @@ const progress = computed(() => {
   return Math.min(100, Math.round((current / target) * 100));
 });
 
+const isCompleted = computed(() => {
+  if (!campaign.value.endDate) return false;
+  const end = new Date(campaign.value.endDate);
+  const today = new Date();
+  const diff = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+  return diff <= 0;
+});
+
 const formatCurrency = value => (Number(value) || 0).toLocaleString('vi-VN');
 
 const normalizeCampaign = data => {
@@ -236,16 +243,12 @@ const fetchDetail = async code => {
   if (!code) return;
   loading.value = true;
   try {
-    if (import.meta.env.DEV) {
-      const mock = getDevCampaignById(code);
-      campaign.value = normalizeCampaign(mock);
-    } else {
-      const res = await http.get('/public/campaigns/detail', { params: { campaignCode: code } });
-      campaign.value = normalizeCampaign(res || {});
-    }
+    const res = await getCampaignDetail(code);
+    campaign.value = normalizeCampaign(res || {});
   } catch (err) {
     campaign.value = {};
     console.error('Fetch campaign detail failed', err);
+    alert(err?.message || 'Không thể tải thông tin chiến dịch');
   } finally {
     loading.value = false;
   }
@@ -311,12 +314,13 @@ const submitDonation = async () => {
       cancelUrl: `${window.location.origin}/campaign/${code}?mode=donation&donate=cancel`
     };
 
-    const res = await http.post('/public/donation/create', payload);
+    const res = await createDonation(payload);
     qrCode.value = res?.qrCode || res?.qrCodeUrl || '';
     checkoutUrl.value = res?.checkoutUrl || res?.url || '';
     donationStep.value = 2;
   } catch (err) {
     console.error('Create donation failed', err);
+    alert(err?.message || 'Không thể tạo giao dịch quyên góp');
   } finally {
     isSubmitting.value = false;
   }

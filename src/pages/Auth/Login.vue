@@ -75,11 +75,17 @@ const submit = async () => {
   loading.value = true;
   errorMessage.value = '';
   successMessage.value = '';
+  console.log('[Login] Starting login for:', email.value);
   try {
-    await auth.login({ email: email.value, password: password.value, rememberMe: rememberMe.value });
+    const result = await auth.login({ email: email.value, password: password.value, rememberMe: rememberMe.value });
+    console.log('[Login] Login successful, result:', result);
+    console.log('[Login] Auth state - isAuthenticated:', auth.isAuthenticated, 'role:', auth.role);
     successMessage.value = 'Đăng nhập thành công';
-    router.push('/user');
+    setTimeout(() => {
+      router.push('/user');
+    }, 500);
   } catch (err) {
+    console.error('[Login] Login failed:', err);
     errorMessage.value = err?.message || 'Đăng nhập thất bại, vui lòng thử lại';
   } finally {
     loading.value = false;

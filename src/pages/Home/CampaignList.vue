@@ -2,10 +2,23 @@
   <section class="page">
     <div class="header">
       <div>
-        <p class="eyebrow">Tất cả chiến dịch</p>
-        <h1 class="title">Khám phá các chiến dịch đang mở</h1>
+        <h1 class="title">Tất cả chiến dịch</h1>
+        <p class="eyebrow">Cùng nhau chung tay giúp đỡ những hoàn cảnh khó khăn, lan tỏa yêu thương đến mọi miền đất nước</p>
+        <div class="stats">
+          <div class="stat-item">
+            <span class="stat-label">Tổng cộng:</span>
+            <span class="stat-value">{{ campaignStats.total }} Chiến dịch</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Đang diễn ra:</span>
+            <span class="stat-value">{{ campaignStats.inProgress }} Chiến dịch</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Đã hoàn thành:</span>
+            <span class="stat-value">{{ campaignStats.completed }} Chiến dịch</span>
+          </div>
+        </div>
       </div>
-      <span class="hint">Dữ liệu được cập nhật theo thời gian thực</span>
     </div>
 
     <div class="grid" v-if="!loading">
@@ -47,6 +60,17 @@ const campaigns = computed(() => {
 
 const list = computed(() => campaigns.value);
 
+const campaignStats = computed(() => {
+  const total = campaigns.value.length;
+  const inProgress = campaigns.value.filter(c => {
+    const daysLeft = c.durationDays ?? c.daysLeft ?? 0;
+    return Number(daysLeft) <= 0;
+  }).length;
+  const completed = total - inProgress;
+  
+  return { total, inProgress, completed };
+});
+
 const route = useRoute();
 
 const ensureData = async () => {
@@ -76,22 +100,56 @@ watch(
 
 .header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 12px;
+  text-align: center;
+  margin-bottom: 12px;
 }
 
 .eyebrow {
   color: rgba(12, 100, 120, 0.7);
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 600;
+  font-size: 16px;
   letter-spacing: 0.3px;
-  margin-bottom: 6px;
+  margin: 0 0 16px 0;
+  max-width: 1200px;
+  line-height: 1.5;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(12, 100, 120, 0.15);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-label {
+  color: rgba(12, 100, 120, 0.7);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.stat-value {
+  color: var(--primary-strong);
+  font-weight: 800;
+  font-size: 15px;
 }
 
 .title {
   color: var(--primary-strong);
-  font-size: 26px;
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 8px;
 }
 
 .hint {

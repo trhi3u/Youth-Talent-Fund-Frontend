@@ -83,9 +83,6 @@ import { useUserStore } from '@/stores/userStore';
 import { changePassword } from '@/api/user.api';
 import { forgotPassword } from '@/api/auth.api';
 
-// Toggle between mock and real API; keep mock working for dev/testing.
-const USE_MOCK = import.meta.env.DEV;
-
 const authStore = useAuthStore();
 const userStore = useUserStore();
 
@@ -140,19 +137,12 @@ const onSubmit = async () => {
 
   submitting.value = true;
   try {
-    if (USE_MOCK) {
-      // Simulate success in mock mode.
-      await new Promise(resolve => setTimeout(resolve, 500));
-      feedback.success = 'Đã cập nhật mật khẩu (mock)';
-      resetFields();
-    } else {
-      await changePassword({
-        oldPassword: form.currentPassword,
-        newPassword: form.newPassword
-      });
-      feedback.success = 'Đã cập nhật mật khẩu thành công';
-      resetFields();
-    }
+    await changePassword({
+      oldPassword: form.currentPassword,
+      newPassword: form.newPassword
+    });
+    feedback.success = 'Đã cập nhật mật khẩu thành công';
+    resetFields();
   } catch (err) {
     feedback.error = err?.message || 'Cập nhật mật khẩu thất bại, vui lòng thử lại';
   } finally {
@@ -170,13 +160,8 @@ const onForgot = async () => {
 
   forgotLoading.value = true;
   try {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      feedback.success = 'Chúng tôi đã gửi liên kết đặt lại mật khẩu đến email của bạn';
-    } else {
-      await forgotPassword({ email: userEmail.value });
-      feedback.success = 'Chúng tôi đã gửi liên kết đặt lại mật khẩu đến email của bạn';
-    }
+    await forgotPassword({ email: userEmail.value });
+    feedback.success = 'Chúng tôi đã gửi liên kết đặt lại mật khẩu đến email của bạn';
   } catch (err) {
     feedback.error = err?.message || 'Không thể gửi yêu cầu, vui lòng thử lại';
   } finally {

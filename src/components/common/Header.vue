@@ -23,10 +23,11 @@
 
       <div class="actions user-wrapper" v-else>
         <div class="user-menu" ref="avatarEl" @click="toggleDropdown">
-          <div class="avatar" :class="{ placeholder: !avatarUrl }" :style="avatarStyle">
-            <span v-if="!avatarUrl">{{ initials }}</span>
+          <div class="avatar" :class="{ placeholder: !hasCustomAvatar && !avatarUrl }" :style="avatarStyle">
+            <span v-if="!hasCustomAvatar && !avatarUrl">{{ initials }}</span>
           </div>
           <span class="name">{{ displayName }}</span>
+          <span v-if="roleLabel" class="role-pill">{{ roleLabel }}</span>
           <span class="chevron" aria-hidden="true">▾</span>
         </div>
 
@@ -42,6 +43,8 @@
           <template v-else-if="isAdmin || isStaff">
             <div class="item label">{{ displayName }}</div>
             <div class="item role">{{ roleLabel }}</div>
+            <RouterLink v-if="isAdmin" to="/admin" class="item">Trang quản trị</RouterLink>
+            <RouterLink v-if="isStaff" to="/staff" class="item">Trang nhân viên</RouterLink>
             <div class="divider" />
             <button class="item danger" @click="handleLogout">Đăng xuất</button>
           </template>
@@ -56,6 +59,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import SearchBar from '@/components/common/SearchBar.vue';
+import defaultAvatar from '@/assets/image/avatar.png';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -74,7 +78,11 @@ const isAdmin = computed(() => roles.value.includes('ROLE_ADMIN') || primaryRole
 const isStaff = computed(() => roles.value.includes('ROLE_STAFF') || primaryRole.value === 'STAFF');
 
 const displayName = computed(() => user.value.fullName || user.value.name || user.value.email || 'Người dùng');
-const avatarUrl = computed(() => user.value.avatarUrl || '');
+const userAvatar = computed(
+  () => user.value?.avatarUrl || user.value?.avatarPath || user.value?.avatarPaths?.originalPath || ''
+);
+const avatarUrl = computed(() => userAvatar.value || defaultAvatar);
+const hasCustomAvatar = computed(() => Boolean(userAvatar.value));
 const initials = computed(() => (displayName.value || 'ND').trim().slice(0, 1).toUpperCase());
 const avatarStyle = computed(() => (avatarUrl.value ? { backgroundImage: `url(${avatarUrl.value})` } : {}));
 
@@ -254,6 +262,15 @@ onBeforeUnmount(() => {
 .name {
   font-weight: 700;
   color: var(--primary-strong);
+}
+
+.role-pill {
+  background: rgba(9, 209, 199, 0.16);
+  color: var(--primary-strong);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .chevron {

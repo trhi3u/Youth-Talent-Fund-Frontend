@@ -6,8 +6,20 @@
       </div>
 
       <div class="user-summary">
-        <div class="avatar" :class="{ placeholder: !avatarUrl }" :style="avatarStyle">
-          <span v-if="!avatarUrl">{{ initials }}</span>
+        <div class="avatar-wrapper">
+          <div class="avatar" :class="{ placeholder: !avatarUrl }" :style="avatarStyle" @click="triggerFileInput">
+            <span v-if="!avatarUrl">{{ initials }}</span>
+          </div>
+          <div class="avatar-overlay" @click="triggerFileInput">
+            <span>📷</span>
+          </div>
+          <input 
+            ref="fileInput" 
+            type="file" 
+            accept="image/*" 
+            style="display: none" 
+            @change="handleAvatarUpload"
+          />
         </div>
         <div class="user-text">
           <p class="name">{{ displayName }}</p>
@@ -56,16 +68,15 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
-import { updateProfile } from '@/api/user.api';
-
-// Toggle mock vs real API. In DEV we default to mock; switch off to call real API.
-const USE_MOCK = import.meta.env.DEV;
+import { updateProfile, updateAvatar } from '@/api/user.api';
+import defaultAvatar from '@/assets/image/avatar.png';
 
 const authStore = useAuthStore();
 
+const fileInput = ref(null);
 const user = computed(() => authStore.userInfo || authStore.user || {});
 const displayName = computed(() => user.value?.fullName || user.value?.name || user.value?.email || 'Người dùng');
-const avatarUrl = computed(() => user.value?.avatarUrl || user.value?.avatarPath || '');
+const avatarUrl = computed(() => user.value?.avatarUrl || user.value?.avatarPath || user.value?.avatarPaths?.originalPath || defaultAvatar);
 const initials = computed(() => (user.value?.fullName || user.value?.name || user.value?.email || 'U').charAt(0).toUpperCase());
 const avatarStyle = computed(() => (avatarUrl.value ? { backgroundImage: `url(${avatarUrl.value})` } : {}));
 const joinDateText = computed(() => {
@@ -110,46 +121,85 @@ const submit = async () => {
 
   loading.value = true;
   try {
-    if (USE_MOCK) {
-      // Mock path: update the auth store locally and show success.
-      authStore.setAuth({
-        token: authStore.token,
-        role: authStore.role,
-        user: {
-          ...user.value,
-          fullName: form.fullName,
-          name: form.fullName,
-          email: form.email,
-          phone: form.phone,
-          address: form.address,
-          bio: form.bio
-        }
-      });
-      success.value = 'Đã cập nhật hồ sơ (mock)';
-    } else {
-      await updateProfile({
+    await updateProfile({
+      fullName: form.fullName,
+      phone: form.phone,
+      address: form.address,
+      bio: form.bio
+    });
+    // After real update, refresh local state to keep UI in sync.
+    authStore.setAuth({
+      token: authStore.token,
+      role: authStore.role,
+      user: {
+        ...user.value,
         fullName: form.fullName,
+        name: form.fullName,
         phone: form.phone,
         address: form.address,
         bio: form.bio
-      });
-      // After real update, refresh local state to keep UI in sync.
-      authStore.setAuth({
-        token: authStore.token,
-        role: authStore.role,
-        user: {
-          ...user.value,
-          fullName: form.fullName,
-          name: form.fullName,
-          phone: form.phone,
-          address: form.address,
-          bio: form.bio
-        }
-      });
-      success.value = 'Đã cập nhật hồ sơ';
-    }
+      }
+    });
+    success.value = 'Đã cập nhật hồ sơ';
   } catch (err) {
     error.value = err?.message || 'Cập nhật thất bại, vui lòng thử lại';
+  } finally {
+    loading.value = false;
+  }
+};
+
+const triggerFileInput = () => {
+  if (fileInput.value) {
+    fileInput.value.click();
+  }
+};
+
+const handleAvatarUpload = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    error.value = 'Vui lòng chọn file ảnh';
+    return;
+  }
+
+  // Validate file size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    error.value = 'Kích thước ảnh không được vượt quá 5MB';
+    return;
+  }
+
+  loading.value = true;
+  error.value = '';
+  success.value = '';
+
+  try {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const result = await updateAvatar(formData);
+    
+    // Update local state with new avatar
+    authStore.setAuth({
+      token: authStore.token,
+      role: authStore.role,
+      user: {
+        ...user.value,
+        avatarUrl: result?.avatarUrl || result?.avatarPath || result?.avatarPaths?.originalPath,
+        avatarPath: result?.avatarPath || result?.avatarUrl,
+        avatarPaths: result?.avatarPaths || user.value?.avatarPaths
+      }
+    });
+
+    success.value = 'Đã cập nhật avatar';
+    
+    // Reset file input
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
+  } catch (err) {
+    error.value = err?.message || 'Cập nhật avatar thất bại';
   } finally {
     loading.value = false;
   }
@@ -198,6 +248,15 @@ const submit = async () => {
   gap: 16px;
 }
 
+.avatar-wrapper {
+  position: relative;
+  cursor: pointer;
+}
+
+.avatar-wrapper:hover .avatar-overlay {
+  opacity: 1;
+}
+
 .avatar {
   width: 80px;
   height: 80px;
@@ -210,6 +269,23 @@ const submit = async () => {
   font-size: 28px;
   font-weight: 800;
   color: #0c6478;
+  transition: transform 0.2s ease;
+}
+
+.avatar-wrapper:hover .avatar {
+  transform: scale(1.05);
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  font-size: 24px;
 }
 
 .avatar.placeholder {

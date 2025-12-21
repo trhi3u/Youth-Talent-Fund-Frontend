@@ -1,8 +1,8 @@
 <template>
   <article class="campaign-card card" :class="{ loading }">
     <div class="cover" :style="coverStyle">
-      <div class="badge" v-if="normalized.category">{{ normalized.category }}</div>
-      <div class="tag" v-if="daysLeft !== null">{{ daysLeft }} ngày còn lại</div>
+      <div class="badge" v-if="normalized.category">{{ categoryLabel || normalized.category }}</div>
+      <div class="tag" v-if="campaignStatus">{{ campaignStatus }}</div>
     </div>
     <div class="content">
       <h3 class="title" v-if="!loading">{{ normalized.title }}</h3>
@@ -33,7 +33,7 @@
 
       <div class="actions" v-if="!loading">
         <button class="btn primary" @click="goDetail">Chi tiết</button>
-        <button class="btn ghost" @click="goDonate">Ủng hộ</button>
+        <button class="btn ghost" :disabled="isCompleted" @click="goDonate">{{ isCompleted ? 'Hoàn thành' : 'Ủng hộ' }}</button>
       </div>
 
       <slot name="actions" v-if="!loading" />
@@ -45,6 +45,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import fallbackImage from '@/assets/image/background.png';
+import { getCategoryLabel } from '@/utils/category';
 
 const props = defineProps({
   campaign: { type: Object, default: () => ({}) },
@@ -69,6 +70,8 @@ const normalized = computed(() => {
     endDate: data.endDate || data.closedAt || null
   };
 });
+
+const categoryLabel = computed(() => getCategoryLabel(normalized.value.category));
 
 const progress = computed(() => {
   const goal = normalized.value.targetAmount;
@@ -96,6 +99,17 @@ const daysLeft = computed(() => {
   const today = new Date();
   const diff = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
   return diff < 0 ? 0 : diff;
+});
+
+const campaignStatus = computed(() => {
+  const daysRemaining = daysLeft.value;
+  if (daysRemaining === null) return null;
+  return daysRemaining <= 0 ? 'Hoàn thành' : `${daysRemaining} ngày còn lại`;
+});
+
+const isCompleted = computed(() => {
+  const daysRemaining = daysLeft.value;
+  return daysRemaining !== null && daysRemaining <= 0;
 });
 
 const endDateText = computed(() => {
@@ -266,6 +280,12 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
   background: #f2fbf8;
   color: var(--primary-strong);
   border-color: rgba(12, 100, 120, 0.18);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 @keyframes pulse {

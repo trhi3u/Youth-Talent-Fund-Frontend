@@ -76,13 +76,19 @@ router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
   const requiredRole = to.meta.requiresRole;
 
+  console.log('[Router] Navigation to:', to.path, 'requiredRole:', requiredRole);
+
   if (!requiredRole) return next();
 
-  const role = auth.role;
+  const role = normalizeRole(auth.role || auth.userInfo?.roles?.[0]);
+  console.log('[Router] Auth check - token:', Boolean(auth.token), 'role:', role, 'required:', requiredRole);
+  
   if (!role || !auth.token || !roleMatches(requiredRole, role)) {
+    console.log('[Router] Access denied, redirecting to:', roleRedirect[normalizeRole(requiredRole)] || '/login');
     return next(roleRedirect[normalizeRole(requiredRole)] || '/login');
   }
 
+  console.log('[Router] Access granted');
   return next();
 });
 

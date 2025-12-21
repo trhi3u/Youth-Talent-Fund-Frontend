@@ -1,0 +1,23 @@
+EDUCATION → Giáo dục
+
+STEM → Khoa học – Kỹ thuật 
+
+TECHNOLOGY → Công nghệ
+
+ARTS → Nghệ thuật
+
+SPORTS → Thể thao
+
+INVENTION → Sáng tạo
+
+HEALTHCARE → Sức khỏe
+
+NUTRITION → Dinh dưỡng
+
+LIFE_SKILLS → Kỹ năng sống
+
+COMMUNITY → Cộng đồng
+
+ENVIRONMENT → Môi trường
+
+SPECIAL_NEEDS → Hoàn cảnh đặc biệt

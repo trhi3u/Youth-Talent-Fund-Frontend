@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia';
 import { getCampaigns, getCampaignDetail } from '@/api/public.api';
 import { createCampaign, updateCampaign } from '@/api/management.api';
-import { getDevCampaigns, getDevCampaignById } from '@/mocks/scenarios';
 
 export const useCampaignStore = defineStore('campaign', {
   state: () => ({
@@ -15,11 +14,6 @@ export const useCampaignStore = defineStore('campaign', {
       this.loading = true;
       this.error = '';
       try {
-        if (import.meta.env.DEV) {
-          this.campaigns = getDevCampaigns();
-          return this.campaigns;
-        }
-
         this.campaigns = await getCampaigns(params);
         return this.campaigns;
       } catch (err) {
@@ -33,11 +27,6 @@ export const useCampaignStore = defineStore('campaign', {
       this.loading = true;
       this.error = '';
       try {
-        if (import.meta.env.DEV) {
-          this.current = getDevCampaignById(id);
-          return this.current;
-        }
-
         this.current = await getCampaignDetail(id);
         return this.current;
       } catch (err) {

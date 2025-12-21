@@ -212,18 +212,18 @@ h1 {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #09d1c7 0%, #46dfb1 100%);
+  background: #d4f6f2;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-  font-size: 18px;
+  font-size: 30px;
 }
 
 .stat-value {
   font-weight: 800;
-  font-size: 16px;
+  font-size: 30px;
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 15px;
   opacity: 0.85;
 }
 
