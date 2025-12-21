@@ -73,20 +73,77 @@ const campaigns = computed(() => {
     description: item.description || '',
     coverImage: item.coverImage || item.coverImagePath || fallbackImage,
     currentAmount: Number(item.currentAmount ?? item.raised ?? 0),
-    targetAmount: Number(item.targetAmount ?? item.goal ?? 0)
+    targetAmount: Number(item.targetAmount ?? item.goal ?? 0),
+    durationDays: item.durationDays ?? item.daysLeft,
+    endDate: item.endDate || item.closedAt || null,
+    category: item.category || item.categoryName || item.topic || ''
   }));
 });
 
-const featuredCampaigns = computed(() => campaigns.value.slice(0, 3));
+const keyword = computed(() => (route.query.keyword || '').toString().trim().toLowerCase());
+const status = computed(() => (route.query.status || '').toString() || undefined);
+const category = computed(() => (route.query.category || '').toString());
+
+const fetchParams = computed(() => ({
+  keyword: keyword.value || undefined,
+  category: category.value || undefined
+}));
+
+const getDaysRemaining = campaign => {
+  const durationValue = Number(campaign.durationDays);
+  if (Number.isFinite(durationValue)) return durationValue;
+
+  if (campaign.endDate) {
+    const end = new Date(campaign.endDate);
+    const today = new Date();
+    const diff = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+    return diff;
+  }
+
+  return null;
+};
+
+const filteredCampaigns = computed(() => {
+  const kw = keyword.value;
+  const cat = category.value.trim();
+  const st = status.value;
+
+  return campaigns.value.filter(c => {
+    const days = getDaysRemaining(c);
+
+    if (st === 'IN_PROGRESS') {
+      if (days === null) return true;
+      if (days <= 0) return false;
+    }
+
+    if (st === 'COMPLETED') {
+      if (days === null || days > 0) return false;
+    }
+
+    if (cat) {
+      const campaignCategory = (c.category || '').toString().trim();
+      if (!campaignCategory || campaignCategory.toLowerCase() !== cat.toLowerCase()) return false;
+    }
+
+    if (kw) {
+      const title = (c.title || '').toString().toLowerCase();
+      if (!title.includes(kw)) return false;
+    }
+
+    return true;
+  });
+});
+
+const featuredCampaigns = computed(() => filteredCampaigns.value.slice(0, 3));
 
 const heroStyle = computed(() => ({
   backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 100%), url(${heroBg})`
 }));
 
 const ensureCampaigns = async () => {
-  if (!campaigns.value.length && !campaignLoading.value) {
+  if (!campaignLoading.value) {
     try {
-      await campaignStore.fetchAll();
+      await campaignStore.fetchAll(fetchParams.value);
     } catch (err) {
       console.error('Fetch campaigns failed', err);
     }

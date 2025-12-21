@@ -6,11 +6,19 @@
         <path d="M15.5 15.5 21 21" stroke-linecap="round" />
       </svg>
     </span>
-    <input type="search" :placeholder="props.placeholder" :disabled="props.disabled" />
+    <input
+      type="search"
+      v-model="keyword"
+      :placeholder="props.placeholder"
+      :disabled="props.disabled"
+      @keyup.enter="handleSearch"
+    />
   </label>
 </template>
 
 <script setup>
+import { ref } from 'vue';
+
 const props = defineProps({
   placeholder: {
     type: String,
@@ -21,6 +29,16 @@ const props = defineProps({
     default: false
   }
 });
+
+const emit = defineEmits(['search']);
+const keyword = ref('');
+
+const handleSearch = () => {
+  const value = (keyword.value || '').trim();
+  keyword.value = value;
+  emit('search', value);
+  keyword.value = '';
+};
 </script>
 
 <style scoped lang="scss">

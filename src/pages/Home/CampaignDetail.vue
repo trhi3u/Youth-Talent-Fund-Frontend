@@ -69,7 +69,7 @@
             </label>
             <label>
               <span>Số điện thoại</span>
-              <input type="tel" v-model="donationForm.phoneNumber" placeholder="0901234567" />
+              <input type="tel" v-model="donationForm.phoneNumber" placeholder="*********" />
             </label>
             <label class="full">
               <span>Lời nhắn</span>

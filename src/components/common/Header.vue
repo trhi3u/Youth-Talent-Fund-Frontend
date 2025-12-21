@@ -14,7 +14,7 @@
         </RouterLink>
       </nav>
 
-      <SearchBar class="search" />
+      <SearchBar class="search" @search="handleSearch" />
 
       <div class="actions" v-if="!isAuthenticated">
         <RouterLink class="btn ghost" to="/login">Đăng nhập</RouterLink>
@@ -108,6 +108,11 @@ const navItems = computed(() => roleNav.value);
 
 const toggleDropdown = () => {
   open.value = !open.value;
+};
+
+const handleSearch = keyword => {
+  const value = (keyword || '').trim();
+  router.push({ path: '/campaigns', query: value ? { keyword: value } : {} });
 };
 
 const closeDropdown = () => {
