@@ -54,7 +54,6 @@
             <div>
               <h3>Chiến dịch Gần đây</h3>
             </div>
-            <span class="pill">{{ campaigns.length }} mục</span>
           </div>
 
           <div v-if="loading" class="skeleton-list">
@@ -66,22 +65,14 @@
             <p>Chưa có dữ liệu chiến dịch</p>
           </div>
 
-          <div v-else class="table">
-            <div class="table-head">
-              <span>Tên chiến dịch</span>
-              <span>Trạng thái</span>
-              <span>Quyên góp</span>
-              <span>Còn lại</span>
-            </div>
-            <div v-for="item in recentCampaigns" :key="item.code || item.id" class="table-row">
-              <div class="campaign-title">
-                <p class="name">{{ item.title }}</p>
-                <p class="meta-text">{{ item.code || item.id || '—' }}</p>
-              </div>
-              <span class="status" :class="item.statusClass">{{ item.statusLabel }}</span>
-              <span class="number">{{ item.progressText }}</span>
-              <span class="number">{{ item.remainingText }}</span>
-            </div>
+          <div v-else class="cards-grid single-column">
+            <CampaignCardFull
+              v-for="item in recentCampaigns"
+              :key="item.code || item.id"
+              :campaign="item"
+              role="ADMIN"
+              :hideCover="true"
+            />
           </div>
         </div>
 
@@ -124,6 +115,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useAdminStore } from '@/stores/adminStore';
+import CampaignCardFull from '@/components/campaign/CampaignCardFull.vue';
 const adminStore = useAdminStore();
 const loading = ref(false);
 
@@ -149,6 +141,8 @@ const campaigns = computed(() =>
     const statusClass = mapStatusClass(statusRaw);
     const currentAmount = Number(item.currentAmount ?? item.raised ?? item.totalRaised ?? 0);
     const targetAmount = Number(item.targetAmount ?? item.goal ?? item.expectedAmount ?? 0);
+    const durationDays = item.durationDays ?? item.daysLeft;
+    const endDate = item.endDate || item.closedAt || null;
     const remaining = Math.max(targetAmount - currentAmount, 0);
     const remainingText = targetAmount ? `${remaining.toLocaleString('vi-VN')} đ` : '—';
     const progressText = targetAmount
@@ -163,6 +157,8 @@ const campaigns = computed(() =>
       statusClass,
       currentAmount,
       targetAmount,
+    durationDays,
+    endDate,
       remaining,
       remainingText,
       progressText
@@ -170,10 +166,27 @@ const campaigns = computed(() =>
   })
 );
 
+const getDaysRemaining = campaign => {
+  const durationValue = Number(campaign.durationDays ?? campaign.daysLeft);
+  if (Number.isFinite(durationValue)) return durationValue;
+
+  if (campaign.endDate) {
+    const end = new Date(campaign.endDate);
+    const today = new Date();
+    return Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+  }
+
+  return null;
+};
+
 const totals = computed(() => {
   const total = campaigns.value.length;
-  const active = campaigns.value.filter(c => ['IN_PROGRESS', 'ACTIVE', 'RUNNING', 'ONGOING'].includes(c.statusRaw)).length;
-  const completed = campaigns.value.filter(c => ['COMPLETED', 'DONE', 'FINISHED', 'CLOSED'].includes(c.statusRaw)).length;
+  const active = campaigns.value.filter(c => {
+    const daysLeft = getDaysRemaining(c);
+    if (daysLeft === null) return true;
+    return Number(daysLeft) > 0;
+  }).length;
+  const completed = total - active;
   const donations = campaigns.value.reduce((sum, c) => sum + (c.currentAmount || 0), 0);
 
   return {
@@ -189,7 +202,7 @@ const completedPercent = computed(() =>
   totals.value.total ? Math.round((totals.value.completed / totals.value.total) * 100) : 0
 );
 
-const recentCampaigns = computed(() => campaigns.value.slice(0, 5));
+const recentCampaigns = computed(() => campaigns.value.slice(0, 4));
 
 const fetchData = async () => {
   loading.value = true;
@@ -327,6 +340,16 @@ h1 {
 .table {
   display: grid;
   gap: 10px;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.cards-grid.single-column {
+  grid-template-columns: 1fr;
 }
 
 .table-head,
