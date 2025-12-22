@@ -63,7 +63,7 @@ const submit = async () => {
   errorMessage.value = '';
   successMessage.value = '';
   try {
-    const res = await auth.login({ email: email.value, password: password.value });
+    const res = await auth.login({ email: email.value, password: password.value, role: 'ADMIN' });
     const role = normalizeRole(res?.role);
 
     if (!res?.userInfo) {

@@ -41,10 +41,8 @@
           </template>
 
           <template v-else-if="isAdmin || isStaff">
-            <div class="item label">{{ displayName }}</div>
-            <div class="item role">{{ roleLabel }}</div>
-            <RouterLink v-if="isAdmin" to="/admin" class="item">Trang quản trị</RouterLink>
-            <RouterLink v-if="isStaff" to="/staff" class="item">Trang nhân viên</RouterLink>
+            <RouterLink v-if="isAdmin" to="/admin/dashboard" class="item">Trang quản trị</RouterLink>
+            <RouterLink v-if="isStaff" to="/staff/dashboard" class="item">Trang nhân viên</RouterLink>
             <div class="divider" />
             <button class="item danger" @click="handleLogout">Đăng xuất</button>
           </template>
@@ -99,8 +97,8 @@ const baseNav = [
 ];
 
 const roleNav = computed(() => {
-  if (isAdmin.value) return [...baseNav, { label: 'Quản trị', to: '/admin' }];
-  if (isStaff.value) return [...baseNav, { label: 'Staff', to: '/staff' }];
+  if (isAdmin.value) return [...baseNav, { label: 'Quản trị', to: '/admin/dashboard' }];
+  if (isStaff.value) return [...baseNav, { label: 'Staff', to: '/staff/dashboard' }];
   return baseNav; 
 });
 

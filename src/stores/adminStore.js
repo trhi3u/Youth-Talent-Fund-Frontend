@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import { listStaff, createStaff, assignStaff, listAdminCampaigns } from '@/api/admin.api';
+import { getStaffs, createStaff } from '@/api/admin.api';
+import { getCampaigns } from '@/api/public.api';
 
 export const useAdminStore = defineStore('ADMIN', {
   state: () => ({
@@ -8,7 +9,7 @@ export const useAdminStore = defineStore('ADMIN', {
   }),
   actions: {
     async fetchStaff() {
-      this.staff = await listStaff();
+      this.staff = await getStaffs();
       return this.staff;
     },
     async addStaff(payload) {
@@ -17,11 +18,21 @@ export const useAdminStore = defineStore('ADMIN', {
       return created;
     },
     async fetchCampaigns() {
-      this.campaigns = await listAdminCampaigns();
+      const res = await getCampaigns();
+      const list = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.content)
+            ? res.content
+            : [];
+
+      this.campaigns = list;
       return this.campaigns;
     },
     async assign(payload) {
-      return assignStaff(payload);
+      // Current API uses create-staff endpoint for assignment
+      return createStaff(payload);
     }
   }
 });

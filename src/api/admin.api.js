@@ -11,3 +11,5 @@ export const lockStaff = email => http.post(`/admin/staff/lock/${email}`);
 export const unlockStaff = email => http.post(`/admin/staff/unlock/${email}`);
 
 
+
+

@@ -66,7 +66,7 @@ export const useAuthStore = defineStore('auth', {
       
       const accessToken = data?.accessToken || data?.token;
       const userInfo = data?.userInfo || data?.user;
-      const role = normalizeRole(userInfo?.roles?.[0] || data?.role || '');
+      const role = normalizeRole(userInfo?.roles?.[0] || data?.role || payload?.role || '');
 
       if (!userInfo) {
         console.error('[AuthStore] Missing user info in login response');
