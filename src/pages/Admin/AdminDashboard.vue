@@ -1,31 +1,14 @@
 <template>
-  <section class="page admin-layout">
-    <aside class="sidebar">
-      <nav class="sidebar-nav">
-        <RouterLink
-          v-for="item in navItems"
-          :key="item.routeName"
-          :to="{ name: item.routeName }"
-          class="nav-link"
-          :class="{ active: route.name === item.routeName }"
-          :aria-current="route.name === item.routeName ? 'page' : null"
-        >
-          <span class="nav-label">{{ item.label }}</span>
-        </RouterLink>
-      </nav>
-    </aside>
-
-    <div class="main">
-      <div class="header">
-        <div>
-          <p class="eyebrow">Tổng quan</p>
-          <h1>Trang quản trị</h1>
-          <p class="subtitle">Theo dõi hiệu quả chiến dịch, quyên góp và tiến độ thực hiện.</p>
-        </div>
-        <div class="header-actions">
-          <span class="chip" :class="{ live: !loading }">{{ loading ? 'Đang tải dữ liệu' : 'Dữ liệu trực tuyến' }}</span>
-        </div>
+  <section class="page">
+    <div class="header">
+      <div>
+        <h1>Trang quản trị</h1>
       </div>
+      <div class="header-actions">
+        <span class="chip" :class="{ live: !loading }">{{ loading ? 'Đang tải dữ liệu' : 'Dữ liệu trực tuyến' }}</span>
+      </div>
+    </div>
+    <div class="layout-block">
 
       <div class="summary-grid">
         <div class="summary-card">
@@ -69,8 +52,7 @@
         <div class="panel">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Chiến dịch</p>
-              <h3>Gần đây</h3>
+              <h3>Chiến dịch Gần đây</h3>
             </div>
             <span class="pill">{{ campaigns.length }} mục</span>
           </div>
@@ -141,19 +123,9 @@
 </template>
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
 import { useAdminStore } from '@/stores/adminStore';
-
-const route = useRoute();
 const adminStore = useAdminStore();
 const loading = ref(false);
-
-const navItems = [
-  { label: 'Quản lý chiến dịch', routeName: 'admin-campaigns' },
-  { label: 'Quản lý nhân viên', routeName: 'admin-staff' },
-  { label: 'Tạo chiến dịch mới', routeName: 'admin-campaign-create' },
-  { label: 'Thống kê', routeName: 'admin-analytics' }
-];
 
 const mapStatus = status => {
   if (['COMPLETED', 'DONE', 'FINISHED', 'CLOSED'].includes(status)) return 'Hoàn thành';
@@ -235,59 +207,13 @@ onMounted(fetchData);
 
 <style scoped lang="scss">
 .page {
-  padding: 0;
+  padding: 28px;
   background: #f6f8fb;
 }
 
-.admin-layout {
+.layout-block {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  min-height: calc(100vh - 80px);
-}
-
-.sidebar {
-  background: #0c6478;
-  color: #e8f4f6;
-  padding: 20px 18px;
-  display: grid;
-  gap: 12px;
-  align-content: start;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.sidebar-nav {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: #e8f4f6;
-  background: rgba(255, 255, 255, 0.06);
-  font-weight: 700;
-  transition: background 0.2s ease, transform 0.15s ease;
-}
-
-.nav-link:hover {
-  background: rgba(255, 255, 255, 0.12);
-  transform: translateX(2px);
-}
-
-.nav-link.active {
-  background: #fff;
-  color: #0c6478;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
-}
-
-.main {
-  padding: 28px;
-  display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .header {
@@ -296,6 +222,7 @@ onMounted(fetchData);
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .eyebrow {
@@ -308,14 +235,9 @@ onMounted(fetchData);
 h1 {
   font-size: 28px;
   color: #123047;
-  margin: 0;
+  margin: 0 0 4px;
 }
 
-.subtitle {
-  color: #597182;
-  margin-top: 6px;
-  max-width: 620px;
-}
 
 .header-actions {
   display: flex;
@@ -335,7 +257,7 @@ h1 {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .summary-card {
@@ -370,7 +292,7 @@ h1 {
 .content-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 14px;
+  gap: 18px;
   align-items: start;
 }
 
@@ -445,13 +367,7 @@ h1 {
 .panel.highlight .hint { opacity: 0.85; }
 
 @media (max-width: 1024px) {
-  .admin-layout { grid-template-columns: 220px 1fr; }
   .content-grid { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 768px) {
-  .admin-layout { grid-template-columns: 1fr; }
-  .sidebar { grid-template-columns: 1fr; }
 }
 .panel:not(.highlight) .progress .bar {
   background: linear-gradient(90deg, #2c5de5 0%, #09d1c7 100%);

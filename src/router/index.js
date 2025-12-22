@@ -32,6 +32,7 @@ const router = createRouter({
     {
       path: '/admin',
       meta: { requiresRole: 'ADMIN' },
+      component: () => import('@/pages/Admin/AdminLayout.vue'),
       children: [
         { path: '', redirect: '/admin/dashboard' },
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/pages/Admin/AdminDashboard.vue') },
@@ -46,6 +47,7 @@ const router = createRouter({
     {
       path: '/staff',
       meta: { requiresRole: 'STAFF' },
+      component: () => import('@/pages/Staff/StaffLayout.vue'),
       children: [
         { path: '', redirect: '/staff/dashboard' },
         { path: 'dashboard', name: 'staff-dashboard', component: () => import('@/pages/Staff/StaffDashboard.vue') },
