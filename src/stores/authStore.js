@@ -68,6 +68,11 @@ export const useAuthStore = defineStore('auth', {
       const userInfo = data?.userInfo || data?.user;
       const role = normalizeRole(userInfo?.roles?.[0] || data?.role || '');
 
+      if (!userInfo) {
+        console.error('[AuthStore] Missing user info in login response');
+        throw new Error('Không có thông tin người dùng');
+      }
+
       console.log('[AuthStore] Extracted:', { accessToken: accessToken?.substring(0, 20) + '...', role, userInfo });
 
       if (!accessToken) {

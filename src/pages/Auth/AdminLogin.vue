@@ -53,6 +53,8 @@ const successMessage = ref('');
 const router = useRouter();
 const auth = useAuthStore();
 
+const normalizeRole = role => (role || '').replace(/^ROLE_/i, '').toUpperCase();
+
 const canSubmit = computed(() => email.value && password.value);
 
 const submit = async () => {
@@ -62,9 +64,20 @@ const submit = async () => {
   successMessage.value = '';
   try {
     const res = await auth.login({ email: email.value, password: password.value });
-    const token = res?.accessToken;
-    const userInfo = res?.userInfo;
-    auth.setAuth({ token, role: userInfo?.roles?.[0] || 'ADMIN', user: userInfo });
+    const role = normalizeRole(res?.role);
+
+    if (!res?.userInfo) {
+      auth.logout();
+      errorMessage.value = 'Không có thông tin người dùng';
+      return;
+    }
+
+    if (role !== 'ADMIN') {
+      auth.logout();
+      errorMessage.value = 'Không đủ quyền truy cập';
+      return;
+    }
+
     successMessage.value = 'Đăng nhập thành công';
     router.push('/admin');
   } catch (err) {

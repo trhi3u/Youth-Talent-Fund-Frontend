@@ -68,6 +68,8 @@ const rememberMe = ref(false);
 const router = useRouter();
 const auth = useAuthStore();
 
+const normalizeRole = role => (role || '').replace(/^ROLE_/i, '').toUpperCase();
+
 const canSubmit = computed(() => email.value && password.value);
 
 const submit = async () => {
@@ -78,8 +80,14 @@ const submit = async () => {
   console.log('[Login] Starting login for:', email.value);
   try {
     const result = await auth.login({ email: email.value, password: password.value, rememberMe: rememberMe.value });
-    console.log('[Login] Login successful, result:', result);
-    console.log('[Login] Auth state - isAuthenticated:', auth.isAuthenticated, 'role:', auth.role);
+    const role = normalizeRole(result?.role);
+
+    if (role !== 'USER') {
+      auth.logout();
+      errorMessage.value = 'Không có thông tin người dùng';
+      return;
+    }
+
     successMessage.value = 'Đăng nhập thành công';
     setTimeout(() => {
       router.push('/user');

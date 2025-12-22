@@ -31,13 +31,23 @@ http.interceptors.response.use(
   },
   err => {
     console.error('[HTTP] Error:', err?.response?.status, err?.response?.data || err.message);
-    if (err?.response?.status === 401) {
+    const reqUrl = err?.config?.url || '';
+
+    // Do not force redirect on login calls; let screens show error message
+    const isAuthLogin = /\/auth\/login/i.test(reqUrl);
+
+    if (err?.response?.status === 401 && !isAuthLogin) {
       const auth = useAuthStore();
       auth.logout();
       window.location.href = '/login';
       return Promise.reject(err);
     }
-    const message = err?.response?.data?.message || err.message || 'Request failed';
+    let message = err?.response?.data?.message || err.message || 'Request failed';
+
+    if (/bad credentials/i.test(message)) {
+      message = 'Không có thông tin người dùng';
+    }
+
     return Promise.reject(new Error(message));
   }
 );
