@@ -64,6 +64,12 @@ const roleRedirect = {
   STAFF: '/staffLogin'
 };
 
+const roleHome = {
+  USER: '/user',
+  ADMIN: '/admin',
+  STAFF: '/staff'
+};
+
 const normalizeRole = role => (role || '').replace(/^ROLE_/i, '').toUpperCase();
 
 const roleMatches = (required, actual) => {
@@ -78,9 +84,18 @@ router.beforeEach((to, from, next) => {
 
   console.log('[Router] Navigation to:', to.path, 'requiredRole:', requiredRole);
 
+  const isAuthPage = ['/login', '/adminLogin', '/staffLogin', '/register'].includes(to.path);
+  const currentRole = normalizeRole(auth.role || auth.userInfo?.roles?.[0]);
+
+  if (auth.token && isAuthPage) {
+    const target = roleHome[currentRole] || '/';
+    console.log('[Router] Already authenticated, redirecting from auth page to:', target, 'role:', currentRole);
+    return next(target);
+  }
+
   if (!requiredRole) return next();
 
-  const role = normalizeRole(auth.role || auth.userInfo?.roles?.[0]);
+  const role = currentRole;
   console.log('[Router] Auth check - token:', Boolean(auth.token), 'role:', role, 'required:', requiredRole);
   
   if (!role || !auth.token || !roleMatches(requiredRole, role)) {
