@@ -43,6 +43,9 @@
           <template v-else-if="isAdmin || isStaff">
             <RouterLink v-if="isAdmin" to="/admin/dashboard" class="item">Trang quản trị</RouterLink>
             <RouterLink v-if="isStaff" to="/staff/dashboard" class="item">Trang nhân viên</RouterLink>
+            <RouterLink to="/user/profile" class="item">Thông tin cá nhân</RouterLink>
+            <RouterLink to="/user/donations" class="item">Lịch sử quyên góp</RouterLink>
+            <RouterLink to="/user/change-password" class="item">Đổi mật khẩu</RouterLink>
             <div class="divider" />
             <button class="item danger" @click="handleLogout">Đăng xuất</button>
           </template>

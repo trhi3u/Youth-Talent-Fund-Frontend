@@ -4,9 +4,6 @@
       <div>
         <h1>Trang quản trị</h1>
       </div>
-      <div class="header-actions">
-        <span class="chip" :class="{ live: !loading }">{{ loading ? 'Đang tải dữ liệu' : 'Dữ liệu trực tuyến' }}</span>
-      </div>
     </div>
     <div class="layout-block">
 
@@ -66,11 +63,10 @@
           </div>
 
           <div v-else class="cards-grid single-column">
-            <CampaignCardFull
+            <CampaignCardDashboard
               v-for="item in recentCampaigns"
               :key="item.code || item.id"
               :campaign="item"
-              role="ADMIN"
               :hideCover="true"
             />
           </div>
@@ -115,7 +111,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useAdminStore } from '@/stores/adminStore';
-import CampaignCardFull from '@/components/campaign/CampaignCardFull.vue';
+import CampaignCardDashboard from '@/components/campaign/CampaignCardDashboard.vue';
 const adminStore = useAdminStore();
 const loading = ref(false);
 

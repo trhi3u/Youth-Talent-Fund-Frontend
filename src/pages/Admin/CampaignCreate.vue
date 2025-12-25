@@ -21,6 +21,15 @@ const goBack = () => router.back();
 </script>
 
 <style scoped lang="scss">
-.page { padding: 32px; }
-.box { padding: 24px; display: grid; gap: 12px; }
+.page { 
+  padding: 32px; 
+}
+.box { 
+  padding: 24px; 
+  display: grid; 
+  gap: 12px; 
+}
+h1 {
+  margin-bottom: 28px;
+}
 </style>

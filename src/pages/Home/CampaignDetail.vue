@@ -42,6 +42,7 @@
                 <button type="button" class="chip" @click="presetAmount(100000)">100.000đ</button>
                 <button type="button" class="chip" @click="presetAmount(200000)">200.000đ</button>
                 <button type="button" class="chip" @click="presetAmount(500000)">500.000đ</button>
+                <button type="button" class="chip" @click="presetAmount(1000000)">1.000.000đ</button>
               </div>
             </div>
 
@@ -128,8 +129,8 @@
         <div class="card tabs-card">
           <div class="tabs">
             <button :class="{ active: activeTab === 'story' }" @click="activeTab = 'story'">Câu chuyện</button>
-            <button :class="{ active: activeTab === 'update' }" @click="activeTab = 'update'">Cập nhật</button>
-            <button :class="{ active: activeTab === 'donation' }" @click="activeTab = 'donation'">Quyên góp</button>
+            <button :class="{ active: activeTab === 'update' }" @click="activeTab = 'update'">Hoạt động</button>
+            <button :class="{ active: activeTab === 'donation' }" @click="activeTab = 'donation'">Danh sách ủng hộ</button>
           </div>
 
           <div class="tab-content">

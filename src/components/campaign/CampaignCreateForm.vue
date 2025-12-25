@@ -14,19 +14,27 @@
       </label>
       <label class="field">
         <span>Mục tiêu (VND) *</span>
-        <input type="number" min="0" step="1000" v-model="form.targetAmount" required />
+        <input
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9.]*"
+          :value="formatCurrency(form.targetAmount)"
+          @input="onTargetAmountInput"
+          required
+          placeholder="nhập số tiền"
+        />
       </label>
       <label class="field">
         <span>Địa điểm</span>
         <input v-model="form.location" />
       </label>
       <label class="field">
-        <span>Ngày bắt đầu</span>
-        <input type="datetime-local" v-model="form.startDate" />
+        <span>Ngày bắt đầu *</span>
+        <input type="datetime-local" v-model="form.startDate" required />
       </label>
       <label class="field">
-        <span>Ngày kết thúc</span>
-        <input type="datetime-local" v-model="form.endDate" />
+        <span>Ngày kết thúc *</span>
+        <input type="datetime-local" v-model="form.endDate" required />
       </label>
       <label class="field file">
         <span>Ảnh bìa</span>
@@ -40,8 +48,8 @@
     </label>
 
     <label class="field">
-      <span>Câu chuyện / Nội dung chính *</span>
-      <textarea rows="6" v-model="form.story" required />
+      <span>Câu chuyện / Nội dung chính</span>
+      <textarea rows="6" v-model="form.story" />
     </label>
 
     <div v-if="errors.length" class="errors">
@@ -52,10 +60,19 @@
       <button class="btn ghost" type="button" @click="$emit('cancel')">Hủy</button>
       <button class="btn primary" type="submit" :disabled="submitting">{{ submitting ? 'Đang lưu...' : 'Tạo chiến dịch' }}</button>
     </div>
+    <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
   </form>
 </template>
 
 <script setup>
+const successMessage = ref('');
+// Format input value to 1.000.000 style and parse back to number
+function onTargetAmountInput(e) {
+  let val = e.target.value.replace(/\./g, '');
+  val = val.replace(/[^0-9]/g, '');
+  form.targetAmount = val ? Number(val) : '';
+  e.target.value = formatCurrency(form.targetAmount);
+}
 
 import { reactive, ref } from 'vue';
 import { getCategoryOptions } from '@/utils/category';
@@ -90,13 +107,56 @@ const onFile = e => {
 
 const validate = () => {
   errors.value = [];
-  if (!form.title) errors.value.push('Tiêu đề là bắt buộc');
-  if (!form.description) errors.value.push('Mô tả là bắt buộc');
-  if (!form.story) errors.value.push('Câu chuyện là bắt buộc');
-  if (!form.targetAmount || Number(form.targetAmount) <= 0) errors.value.push('Mục tiêu phải lớn hơn 0');
-  if (!form.category) errors.value.push('Danh mục là bắt buộc');
+  if (!form.title) {
+    errors.value.push('Tên chiến dịch không được để trống');
+  } else if (form.title.length < 10 || form.title.length > 200) {
+    errors.value.push('Tên chiến dịch phải từ 10 đến 200 ký tự');
+  }
+  if (!form.description) {
+    errors.value.push('Mô tả ngắn không được để trống');
+  }
+  if (!form.location) {
+    errors.value.push('Địa điểm không được để trống');
+  }
+  if (!form.targetAmount) {
+    errors.value.push('Mục tiêu tài chính bắt buộc phải có');
+  } else if (Number(form.targetAmount) < 1000000) {
+    errors.value.push('Mục tiêu gây quỹ tối thiểu là 1.000.000 VNĐ');
+  }
+  if (!form.startDate) {
+    errors.value.push('Ngày bắt đầu không được để trống');
+  } else {
+    const now = new Date();
+    const start = new Date(form.startDate);
+    if (start < now.setHours(0,0,0,0)) {
+      errors.value.push('Ngày bắt đầu phải là hiện tại hoặc tương lai');
+    }
+  }
+  if (!form.endDate) {
+    errors.value.push('Ngày kết thúc không được để trống');
+  } else {
+    const end = new Date(form.endDate);
+    const now = new Date();
+    if (end <= now) {
+      errors.value.push('Ngày kết thúc phải là tương lai');
+    }
+  }
+  if (form.startDate && form.endDate) {
+    const start = new Date(form.startDate);
+    const end = new Date(form.endDate);
+    const diff = (end - start) / (1000 * 60 * 60 * 24);
+    if (diff < 7) errors.value.push('Ngày kết thúc phải diễn ra sau ngày bắt đầu ít nhất 7 ngày');
+  }
+  if (!form.category) {
+    errors.value.push('Danh mục không được để trống');
+  }
   return errors.value.length === 0;
 };
+
+function formatCurrency(val) {
+  if (!val) return '';
+  return Number(val).toLocaleString('vi-VN');
+}
 
 const buildPayload = () => {
   const auth = useAuthStore();
@@ -110,8 +170,8 @@ const buildPayload = () => {
   const data = {
     title: form.title,
     description: form.description,
-    location: form.location,
-    story: form.story,
+    location: form.location || null,
+    story: form.story || null,
     targetAmount: form.targetAmount?.toString() || '',
     startDate: form.startDate ? toUtcString(form.startDate) : null,
     endDate: form.endDate ? toUtcString(form.endDate) : null,
@@ -119,6 +179,7 @@ const buildPayload = () => {
     assigneeCode
   };
   const fd = new FormData();
+  console.log('DEBUG imageFile.value:', imageFile.value);
   if (imageFile.value) fd.append('image', imageFile.value);
   fd.append('data', JSON.stringify(data));
   return fd;
@@ -130,7 +191,11 @@ const handleSubmit = async () => {
   submitting.value = true;
   try {
     await createCampaign(fd);
-    emit('success');
+    successMessage.value = 'Tạo chiến dịch thành công';
+    setTimeout(() => {
+      successMessage.value = '';
+      emit('success');
+    }, 1200);
   } catch (err) {
     errors.value = [err?.message || 'Tạo chiến dịch thất bại'];
   } finally {
@@ -140,6 +205,17 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped lang="scss">
+.success-message {
+  color: #219653;
+  background: #eafaf1;
+  border: 1px solid #b7e5c2;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+
 .campaign-create {
   display: grid;
   gap: 16px;
@@ -155,6 +231,10 @@ const handleSubmit = async () => {
   display: grid;
   gap: 8px;
   color: #0b6c7f;
+
+  span {
+    font-weight: 700;
+  }
 
   input,
   select,
