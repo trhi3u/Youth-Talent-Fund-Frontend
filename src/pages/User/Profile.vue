@@ -111,6 +111,7 @@ onMounted(() => {
   populateForm();
 });
 
+const phonePattern = /^(?:\+84|0)[35789][0-9]{8}$/;
 const submit = async () => {
   error.value = '';
   success.value = '';
@@ -118,7 +119,10 @@ const submit = async () => {
     error.value = 'Họ và tên là bắt buộc';
     return;
   }
-
+  if (form.phone && !phonePattern.test(form.phone)) {
+    error.value = 'Số điện thoại không hợp lệ. Vui lòng nhập dạng 0xxxxxxxxx hoặc +84xxxxxxxxx';
+    return;
+  }
   loading.value = true;
   try {
     await updateProfile({

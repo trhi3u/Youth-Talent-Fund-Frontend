@@ -83,17 +83,23 @@ const successMessage = ref('');
 
 const router = useRouter();
 
-const canSubmit = computed(() => fullName.value && email.value && phoneNumber.value && password.value.length >= 6);
+const phonePattern = /^(?:\+84|0)[35789][0-9]{8}$/;
+const canSubmit = computed(() => fullName.value && email.value && phoneNumber.value && password.value.length >= 6 && phonePattern.test(phoneNumber.value));
 
 const fieldError = field => {
   if (!errorMessage.value) return false;
   if (field === 'email' && !/.+@.+\..+/.test(email.value)) return true;
   if (field === 'password' && password.value.length < 6) return true;
+  if (field === 'phoneNumber' && !phonePattern.test(phoneNumber.value)) return true;
   return false;
 };
 
 const submit = async () => {
   if (!canSubmit.value || loading.value) return;
+  if (!phonePattern.test(phoneNumber.value)) {
+    errorMessage.value = 'Số điện thoại không hợp lệ. Vui lòng nhập dạng 0xxxxxxxxx hoặc +84xxxxxxxxx';
+    return;
+  }
   loading.value = true;
   errorMessage.value = '';
   successMessage.value = '';

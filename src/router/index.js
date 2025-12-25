@@ -21,7 +21,6 @@ const router = createRouter({
 
     {
       path: '/user',
-      meta: { requiresRole: 'USER' },
       children: [
         { path: '', redirect: '/user/profile' },
         { path: 'profile', name: 'user-profile', component: () => import('@/pages/User/Profile.vue') },
@@ -40,6 +39,7 @@ const router = createRouter({
         { path: 'campaigns/create', name: 'admin-campaign-create', component: () => import('@/pages/Admin/CampaignCreate.vue') },
         { path: 'campaigns/:id/edit', name: 'admin-campaign-edit', component: () => import('@/pages/Admin/CampaignEdit.vue') },
         { path: 'staff', name: 'admin-staff', component: () => import('@/pages/Admin/StaffManagement.vue') },
+        { path: 'staff/:staffCode', name: 'admin-staff-detail', component: () => import('@/pages/Admin/StaffDetail.vue') },
         { path: 'assign', name: 'admin-assign', component: () => import('@/pages/Admin/AssignStaff.vue') },
         { path: 'analytics', name: 'admin-analytics', component: () => import('@/pages/Admin/Analytics.vue') }
       ]

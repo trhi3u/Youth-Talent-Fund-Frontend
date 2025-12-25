@@ -5,18 +5,32 @@
         <h1>Quản lý Nhân viên</h1>
         <div style="display: flex; gap: 12px; align-items: center;">
           <SearchBar :placeholder="'Tìm theo tên nhân viên...'" @search="onSearch" />
-          <button class="btn primary" @click="openCreate = true">Thêm staff</button>
+          <button class="btn primary" @click="openCreate = true">Nhân viên mới</button>
         </div>
       </div>
       <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
       <div class="grid">
         <template v-if="staffList.length">
-          <StaffCard v-for="item in staffList" :key="item.code" :staff="item" />
+          <StaffCard
+            v-for="item in staffList"
+            :key="item.code"
+            :staff="item"
+            @edit="onEditStaff"
+            @lock="onLockStaff"
+            @unlock="onUnlockStaff"
+            @detail="goToDetail"
+          />
         </template>
         <template v-else>
           <div style="padding:32px;text-align:center;color:#888;font-size:18px;">Không có nhân viên phù hợp</div>
         </template>
       </div>
+      <StaffEditForm
+        v-if="editingStaff"
+        :staff="editingStaff"
+        @close="editingStaff = null"
+        @updated="fetchStaffs(search.value)"
+      />
 
       <div v-if="openCreate" class="modal">
         <div class="modal-body card">
@@ -45,15 +59,51 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import StaffCard from './StaffCard.vue';
+import StaffEditForm from './StaffEditForm.vue';
 import SearchBar from '@/components/common/SearchBar.vue';
-import { getStaffs } from '@/api/admin.api';
+import { getStaffs, lockStaff, unlockStaff } from '@/api/admin.api';
+const onLockStaff = async (staff) => {
+  try {
+    await lockStaff(staff.email);
+    successMessage.value = 'Đã khóa nhân viên thành công';
+    fetchStaffs(search.value);
+    setTimeout(() => { successMessage.value = ''; }, 2000);
+  } catch (err) {
+    successMessage.value = '';
+    window.alert(err?.message || 'Khóa nhân viên thất bại');
+  }
+};
+
+const onUnlockStaff = async (staff) => {
+  try {
+    await unlockStaff(staff.email);
+    successMessage.value = 'Đã mở khóa nhân viên thành công';
+    fetchStaffs(search.value);
+    setTimeout(() => { successMessage.value = ''; }, 2000);
+  } catch (err) {
+    successMessage.value = '';
+    window.alert(err?.message || 'Mở khóa nhân viên thất bại');
+  }
+};
 import { useAdminStore } from '@/stores/adminStore';
 
 const adminStore = useAdminStore();
 const staffList = ref([]);
 const search = ref('');
 const openCreate = ref(false);
+const editingStaff = ref(null);
 const form = reactive({ fullName: '', email: '', phoneNumber: '', address: '', password: '' });
+
+import { useRouter } from 'vue-router';
+const router = useRouter();
+const onEditStaff = (staff) => {
+  editingStaff.value = { ...staff };
+};
+const goToDetail = (staff) => {
+  if (staff && staff.code) {
+    router.push({ name: 'admin-staff-detail', params: { staffCode: staff.code } });
+  }
+};
 
 const fetchStaffs = async (keyword = '') => {
   const res = await getStaffs({ keyword });
@@ -78,6 +128,7 @@ const onSearch = (keyword) => {
 
 const errors = ref([]);
 const successMessage = ref("");
+const phonePattern = /^(?:\+84|0)[35789][0-9]{8}$/;
 const validate = () => {
   errors.value = [];
   if (!form.fullName) errors.value.push('Họ tên không được để trống');
@@ -91,8 +142,8 @@ const validate = () => {
   } else if (form.password.length < 6) {
     errors.value.push('Mật khẩu phải có ít nhất 6 ký tự');
   }
-  if (form.phoneNumber && !/^\d{10}$/.test(form.phoneNumber)) {
-    errors.value.push('Số điện thoại phải là 10 chữ số');
+  if (form.phoneNumber && !phonePattern.test(form.phoneNumber)) {
+    errors.value.push('Số điện thoại không hợp lệ. Vui lòng nhập dạng 0xxxxxxxxx hoặc +84xxxxxxxxx');
   }
   return errors.value.length === 0;
 };

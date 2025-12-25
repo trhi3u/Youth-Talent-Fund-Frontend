@@ -9,6 +9,7 @@ export const updateStaff = payload =>
 	});
 export const lockStaff = email => http.post(`/admin/staff/lock/${email}`);
 export const unlockStaff = email => http.post(`/admin/staff/unlock/${email}`);
+export const deleteStaff = email => http.delete(`/admin/staff/${email}`);
 
 
 
