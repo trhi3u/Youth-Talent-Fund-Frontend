@@ -15,7 +15,9 @@
         <span class="chip">{{ startEndRange }}</span>
         <span class="chip" v-if="normalized.category">Danh mục: {{ categoryLabel || normalized.category }}</span>
         <span class="chip" v-if="staffDisplay">Phụ trách: {{ staffDisplay }}</span>
+        <span class="chip" :class="statusClass" v-if="statusLabel">Trạng thái: {{ statusLabel }}</span>
       </div>
+
 
       <p class="desc" v-else>{{ normalized.description || 'Không có mô tả' }}</p>
 
@@ -91,7 +93,7 @@ const normalized = computed(() => {
     ...data,
     title: data.title || data.name || 'Chiến dịch',
     description: data.description || data.story || '',
-    status: (data.status || 'PENDING').toString().toUpperCase(),
+    status: (data.status || 'IN_PROGRESS'),
     category: data.category || data.categoryName || data.topic || '',
     campaignCode: data.campaignCode || data.code || data.id,
     targetAmount,
@@ -121,13 +123,35 @@ const daysLeft = computed(() => {
   return diff;
 });
 
+// Hiển thị trạng thái cho user: lấy trực tiếp từ status, không dựa vào ngày
 const statusText = computed(() => {
   if (props.role === 'ADMIN') return null;
-  const days = daysLeft.value;
-  if (days === null) return null;
-  if (days <= 0) return 'Hoàn thành';
-  return `${days} ngày còn lại`;
+  const s = normalized.value.status?.toUpperCase();
+  if (s === 'COMPLETED') return 'Hoàn thành';
+  if (s === 'IN_PROGRESS') return 'Đang diễn ra';
+  if (s === 'PENDING') return 'Chưa bắt đầu';
+  if (s === 'ON_HOLD') return 'Tạm dừng';
+  if (s === 'CANCELLED') return 'Hủy';
+  return '';
 });
+
+const statusMap = {
+  PENDING: { label: 'Chưa bắt đầu', color: '#f7b500' },
+  IN_PROGRESS: { label: 'Đang diễn ra', color: '#1a7f37' },
+  ON_HOLD: { label: 'Tạm dừng', color: '#f7b500' },
+  COMPLETED: { label: 'Đã hoàn thành', color: '#e53935' },
+  CANCELLED: { label: 'Hủy', color: '#8e24aa' }
+};
+const statusLabel = computed(() => {
+  const s = normalized.value.status?.toUpperCase();
+  return statusMap[s]?.label || s || '';
+});
+const statusClass = computed(() => {
+  const s = normalized.value.status?.toUpperCase();
+  const color = statusMap[s]?.color;
+  return color ? { 'status-chip': true, [`status-${s}`]: true } : '';
+});
+
 
 const startDateText = computed(() => {
   if (!normalized.value.startDate) return 'Đang cập nhật';
@@ -169,7 +193,7 @@ const router = useRouter();
 const goDetail = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
-  router.push(`/campaign/${code}`);
+  router.push(`/admin/campaigns/${code}`);
 };
 
 const goEdit = () => {
@@ -203,6 +227,21 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
 </script>
 
 <style scoped lang="scss">
+.status-chip {
+  font-weight: 700;
+}
+.status-PENDING, .status-ON_HOLD {
+  color: #f7b500 !important;
+}
+.status-IN_PROGRESS {
+  color: #1a7f37 !important;
+}
+.status-COMPLETED {
+  color: #e53935 !important;
+}
+.status-CANCELLED {
+  color: #8e24aa !important;
+}
 .card-full {
   display: grid;
   grid-template-columns: 320px 1fr;

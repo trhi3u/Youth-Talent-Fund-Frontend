@@ -1,0 +1,5 @@
+Pending = chưa bắt đầu  (color: #f7b500)
+In-progress =  đang diễn ra (color: #1a7f37)
+On-hold = tạm dừng (color: #f7b500)
+Completed = đã hoàn thành || kết thúc sớm (color: #e53935)
+Cancelled = hủy (color: #8e24aa)

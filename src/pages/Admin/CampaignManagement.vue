@@ -54,6 +54,7 @@
         :key="item.campaignCode || item.id"
         :campaign="item"
         role="ADMIN"
+        @assign="openAssignModal(item)"
       />
 
       <div v-if="!filteredCampaigns.length" class="empty">
@@ -61,6 +62,12 @@
         <p>Không có chiến dịch phù hợp</p>
       </div>
     </div>
+
+    <AssignCampaignToStaff
+      v-if="showAssignModal"
+      :selected-campaign="assignCampaign"
+      @close="showAssignModal = false"
+    />
   </section>
 </template>
 
@@ -69,7 +76,15 @@ import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCampaignStore } from '@/stores/campaignStore';
 import CampaignCardFull from '@/components/campaign/CampaignCardFull.vue';
+import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
 import { getCategoryOptions } from '@/utils/category';
+const showAssignModal = ref(false);
+const assignCampaign = ref(null);
+
+function openAssignModal(campaign) {
+  assignCampaign.value = campaign;
+  showAssignModal.value = true;
+}
 
 const campaignStore = useCampaignStore();
 const loading = computed(() => campaignStore.loading);
