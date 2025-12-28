@@ -38,6 +38,7 @@ const router = createRouter({
         { path: 'campaigns', name: 'admin-campaigns', component: () => import('@/pages/Admin/CampaignManagement.vue') },
         { path: 'campaigns/create', name: 'admin-campaign-create', component: () => import('@/pages/Admin/CampaignCreate.vue') },
         { path: 'campaigns/:id/edit', name: 'admin-campaign-edit', component: () => import('@/pages/Admin/CampaignEdit.vue') },
+        { path: 'CampaignsEdit/:campaignCode', name: 'admin-campaign-edit-alt', component: () => import('@/pages/Admin/CampaignEdit.vue') },
         { path: 'campaigns/:campaignCode', name: 'admin-campaign-detail', component: () => import('@/pages/Admin/CampaignDetail.vue') },
         { path: 'staff', name: 'admin-staff', component: () => import('@/pages/Admin/StaffManagement.vue') },
         { path: 'staff/:staffCode', name: 'admin-staff-detail', component: () => import('@/pages/Admin/StaffDetail.vue') },

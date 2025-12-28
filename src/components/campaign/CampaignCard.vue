@@ -14,11 +14,7 @@
       <div class="meta" v-if="!loading">
         <div class="meta-item">
           <span class="label">Mục tiêu</span>
-          <span class="value">{{ formatCurrency(normalized.targetAmount) }} VND</span>
-        </div>
-        <div class="meta-item">
-          <span class="label">Đã góp</span>
-          <span class="value">{{ formatCurrency(normalized.currentAmount) }} VND</span>
+          <span class="value">{{ formatCurrency(normalized.currentAmount) }}/{{ formatCurrency(normalized.targetAmount) }} VND</span>
         </div>
       </div>
 
@@ -190,12 +186,13 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
 }
 
 .meta-item {
-  background: rgba(9, 209, 199, 0.06);
-  border: 1px solid rgba(9, 209, 199, 0.12);
+  background: rgba(33, 240, 230, 0.06);
+  border: 1px solid rgba(35, 243, 232, 0.12);
   border-radius: 10px;
   padding: 10px 12px;
   display: grid;
   gap: 4px;
+  text-align: right;
 }
 
 .label {

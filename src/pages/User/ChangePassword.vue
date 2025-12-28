@@ -111,14 +111,14 @@ const validate = () => {
 
   if (!form.currentPassword) errors.current = 'Vui lòng nhập mật khẩu hiện tại';
   if (!form.newPassword) errors.new = 'Vui lòng nhập mật khẩu mới';
-  else if (form.newPassword.length < 8) errors.new = 'Mật khẩu mới tối thiểu 8 ký tự';
+  else if (form.newPassword.length < 6) errors.new = 'Mật khẩu mới tối thiểu 6 ký tự';
   if (form.confirmPassword !== form.newPassword) errors.confirm = 'Mật khẩu nhập lại chưa khớp';
 
   return !errors.current && !errors.new && !errors.confirm;
 };
 
 const canSubmit = computed(() =>
-  form.currentPassword && form.newPassword && form.confirmPassword && form.newPassword.length >= 8 && form.newPassword === form.confirmPassword
+  form.currentPassword && form.newPassword && form.confirmPassword && form.newPassword.length >= 6 && form.newPassword === form.confirmPassword
 );
 
 const resetFields = () => {

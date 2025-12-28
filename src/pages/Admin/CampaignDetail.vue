@@ -53,6 +53,7 @@
       </div>
     </div>
 
+
     <div class="desc-block">
       <div class="desc-section">
         <h2>Mô tả ngắn</h2>
@@ -64,10 +65,84 @@
       </div>
     </div>
 
+
+    <div class="history-report-row">
+      <div class="history-block">
+        <h2>Lịch sử cập nhật</h2>
+        <div v-if="pagedHistory.length" class="history-card-list">
+          <div v-for="item in pagedHistory" :key="item.id" class="history-card">
+            <div class="history-card-row1">
+              <span class="history-date">{{ formatDate(item.time) }}</span>
+              <span class="history-type" :class="'type-' + item.type">{{ typeLabel(item.type) }}</span>
+            </div>
+            <div class="history-card-row2">
+              <span class="history-user">Người tạo: {{ item.creator }}</span>
+            </div>
+            <div v-if="item.transactionAmount" class="history-card-row3">
+              <span class="history-amount">Số tiền: {{ formatCurrency(item.transactionAmount) }} VND</span>
+            </div>
+            <div class="history-content"> Nội dung: {{ item.content }}</div>
+            <div v-if="item.files && item.files.length" class="history-files">
+              <span v-for="(f, idx) in item.files" :key="idx" class="history-file">
+                <a :href="f.url" target="_blank">{{ f.name }}</a>
+              </span>
+            </div>
+          </div>
+          <div class="history-pagination" v-if="historyTotalPages > 1">
+            <button
+              v-for="n in paginationPages"
+              :key="n"
+              :class="['page-btn', { active: n === historyPage } ]"
+              @click="typeof n === 'number' && (historyPage = n)"
+              :disabled="n === '...'"
+            >
+              {{ n }}
+            </button>
+          </div>
+        </div>
+        <div v-else class="history-empty">Chưa có lịch sử cập nhật nào.</div>
+      </div>
+
+      <form class="report-form" @submit.prevent="submitReport">
+        <h2>Tạo báo cáo minh chứng</h2>
+        <div class="form-group">
+          <label>Tiêu đề *</label>
+          <input v-model="reportForm.title" required placeholder="Nhập tiêu đề báo cáo" />
+        </div>
+        <div class="form-group">
+          <label>Loại báo cáo *</label>
+          <select v-model="reportForm.type" required>
+            <option value="" disabled>Chọn loại báo cáo</option>
+            <option value="PROGRESS">Tiến độ</option>
+            <option value="EXPENSE">Chi tiêu</option>
+            <option value="CONTRIBUTION">Đóng góp</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nội dung *</label>
+          <textarea v-model="reportForm.content" rows="3" required placeholder="Nhập nội dung báo cáo" />
+        </div>
+        <div class="form-group">
+          <label>Số tiền (nếu có)</label>
+          <input v-model="reportForm.transactionAmount" type="number" min="0" placeholder="Nhập số tiền" />
+        </div>
+        <div class="form-group">
+          <label>File minh chứng</label>
+          <input type="file" multiple @change="onReportFiles" />
+        </div>
+        <div v-if="reportErrors.length" class="errors">
+          <div v-for="err in reportErrors" :key="err" class="error">{{ err }}</div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="submit" :disabled="reportLoading">{{ reportLoading ? 'Đang gửi...' : 'Tạo báo cáo' }}</button>
+        </div>
+        <div v-if="reportSuccess" class="success-message">{{ reportSuccess }}</div>
+      </form>
+    </div>
+
     <div class="actions-block">
-      <button class="btn primary" @click="goEdit">Chỉnh sửa</button>
+      <button class="btn primary" :disabled="isEditDisabled" @click="goEdit">Chỉnh sửa</button>
       <button class="btn ghost" " @click="openAssign = true">Phân công nhân viên</button>
-      <button class="btn ghost" @click="goReport">Xem báo cáo</button>
       <button class="btn danger" v-if="canHideOrFinish" @click="hideOrFinish">{{ hideOrFinishLabel }}</button>
     </div>
 
@@ -83,6 +158,54 @@ import { getCategoryLabel } from '@/utils/category';
 import { useAuthStore } from '@/stores/authStore';
 
 import { getCampaignDetail } from '@/api/public.api';
+import { createReport } from '@/api/management.api';
+// Form báo cáo minh chứng
+const reportForm = ref({
+  title: '',
+  type: '',
+  content: '',
+  transactionAmount: '',
+});
+const reportFiles = ref([]);
+const reportErrors = ref([]);
+const reportLoading = ref(false);
+const reportSuccess = ref('');
+
+const onReportFiles = e => {
+  reportFiles.value = Array.from(e.target.files || []);
+};
+
+const validateReport = () => {
+  reportErrors.value = [];
+  if (!reportForm.value.title) reportErrors.value.push('Tiêu đề không được để trống');
+  if (!reportForm.value.type) reportErrors.value.push('Vui lòng chọn loại báo cáo');
+  if (!reportForm.value.content) reportErrors.value.push('Nội dung không được để trống');
+  return reportErrors.value.length === 0;
+};
+
+const submitReport = async () => {
+  if (!validateReport()) return;
+  reportLoading.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('data', JSON.stringify({
+      title: reportForm.value.title,
+      type: reportForm.value.type,
+      content: reportForm.value.content,
+      transactionAmount: reportForm.value.transactionAmount || '',
+    }));
+    for (const f of reportFiles.value) fd.append('files', f);
+    await createReport(campaign.value.campaignCode, fd);
+    reportSuccess.value = 'Tạo báo cáo thành công!';
+    setTimeout(() => { reportSuccess.value = ''; }, 1500);
+    reportForm.value = { title: '', type: '', content: '', transactionAmount: '' };
+    reportFiles.value = [];
+  } catch (err) {
+    reportErrors.value = [err?.message || 'Gửi báo cáo thất bại'];
+  } finally {
+    reportLoading.value = false;
+  }
+};
 
 const route = useRoute();
 const router = useRouter();
@@ -124,8 +247,15 @@ const statusClass = computed(() => {
   return statusMap[s]?.class || '';
 });
 
-const goEdit = () => router.push(`/admin/campaigns/${campaign.value.campaignCode}/edit`);
-const goReport = () => router.push(`/admin/campaigns/${campaign.value.campaignCode}/report`);
+const isEditDisabled = computed(() => {
+  const s = campaign.value?.status?.toUpperCase();
+  return s === 'COMPLETED' || s === 'CANCELLED';
+});
+const goEdit = () => {
+  if (!campaign.value || isEditDisabled.value) return;
+  router.push(`/admin/CampaignsEdit/${campaign.value.campaignCode}`);
+};
+
 const hideOrFinish = () => {
  
 };
@@ -139,6 +269,33 @@ const canHideOrFinish = computed(() => {
   if (!campaign.value) return false;
   return ['IN_PROGRESS', 'PENDING'].includes(campaign.value.status);
 });
+const history = ref([]);
+const historyPage = ref(1);
+const historyPerPage = 2;
+const historyTotalPages = computed(() => Math.ceil(history.value.length / historyPerPage));
+const pagedHistory = computed(() => {
+  const start = (historyPage.value - 1) * historyPerPage;
+  return history.value.slice(start, start + historyPerPage);
+});
+
+const paginationPages = computed(() => {
+  const total = historyTotalPages.value;
+  const current = historyPage.value;
+  if (total <= 4) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  if (current <= 3) {
+    return [1, 2, 3, 4, '...', total];
+  }
+
+  if (current >= total - 2) {
+    return [1, '...', total - 3, total - 2, total - 1, total];
+  }
+  // Ở giữa
+  return [1, '...', current - 1, current, current + 1, '...', total];
+});
+const typeLabel = t => t === 'PROGRESS' ? 'Tiến độ' : t === 'EXPENSE' ? 'Chi tiêu' : t === 'CONTRIBUTION' ? 'Đóng góp' : t;
 const onAssigned = () => {
   openAssign.value = false;
   fetchDetail();
@@ -153,6 +310,7 @@ const onAssigned = () => {
   display: flex;
   flex-direction: column;
   gap: 36px;
+  font-family: 'Inter', 'Roboto', Arial, Helvetica, sans-serif;
 }
 .main-header {
   display: flex;
@@ -264,6 +422,7 @@ const onAssigned = () => {
   font-weight: 700;
   color: #123047;
 }
+
 .desc-block {
   background: #fff;
   border-radius: 12px;
@@ -272,6 +431,163 @@ const onAssigned = () => {
   display: flex;
   gap: 48px;
   flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.history-report-row {
+  display: flex;
+  gap: 32px;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+.history-block, .report-form {
+  flex: 1 1 0;
+  min-width: 340px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.report-form {
+  flex: 1 1 340px;
+  min-width: 340px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(12,100,120,0.04);
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.report-form h2 {
+  font-size: 17px;
+  color: #15919B;
+  margin-bottom: 8px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.report-form input,
+.report-form select,
+.report-form textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  font-size: 15px;
+  font-family: inherit;
+}
+.report-form textarea {
+  resize: none;
+  font-family: inherit;
+}
+.report-form input[type='number']::-webkit-inner-spin-button,
+.report-form input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.report-form input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.history-block {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px 32px;
+  box-shadow: 0 2px 8px rgba(12,100,120,0.04);
+  margin-bottom: 24px;
+}
+.history-block h2 {
+  font-size: 17px;
+  color: #15919B;
+  margin-bottom: 12px;
+}
+.history-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.history-card {
+  background: #f8fafd;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(12,100,120,0.04);
+  padding: 18px 20px 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 15px;
+  color: #35516d;
+}
+.history-card-row1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #5c738a;
+  margin-bottom: 2px;
+}
+.history-date {
+  color: #888;
+  min-width: 110px;
+}
+.history-type {
+  font-weight: 700;
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: #eaf6ff;
+  color: #1976d2;
+}
+.history-type.type-EXPENSE { background: #fff3e0; color: #e65100; }
+.history-type.type-PROGRESS { background: #eaf6ff; color: #1976d2; }
+.history-type.type-CONTRIBUTION { background: #e8f5e9; color: #388e3c; }
+.history-card-row2 {
+  font-size: 14px;
+  color: #35516d;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.history-card-row3 {
+  font-size: 14px;
+  color: #e53935;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.history-content {
+  margin: 4px 0 0 0;
+}
+.history-files {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.history-file a {
+  color: #1976d2;
+  text-decoration: underline;
+  font-size: 14px;
+}
+.history-pagination {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 0 0;
+  justify-content: center;
+}
+.page-btn {
+  border: none;
+  background: #f1f8ff;
+  color: #1976d2;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background 0.15s;
+}
+.page-btn.active, .page-btn:hover { background: #1976d2; color: #fff; }
+.history-empty {
+  color: #aaa;
+  font-size: 15px;
+  padding: 8px 0;
 }
 .desc-section {
   flex: 1 1 320px;

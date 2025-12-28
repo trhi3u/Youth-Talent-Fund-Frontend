@@ -13,6 +13,8 @@
     "axios": "^1.6.0",
     "flatpickr": "^4.6.13",
     "pinia": "^2.1.7",
+    "sockjs-client": "^1.6.1",
+    "stompjs": "^2.3.3",
     "vue": "^3.4.0",
     "vue-flatpickr-component": "^12.0.0",
     "vue-router": "^4.2.5"

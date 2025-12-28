@@ -19,7 +19,7 @@
       </div>
       <footer class="actions">
         <button class="btn ghost" @click="goDetail">Chi tiết</button>
-        <button class="btn" @click="goEdit">Chỉnh sửa</button>
+        <button class="btn" :disabled="isEditDisabled" @click="goEdit">Chỉnh sửa</button>
         <button class="btn ghost" @click="$emit('pause', normalized)">Tạm dừng</button>
         <button class="btn ghost" @click="$emit('finish', normalized)">Kết thúc</button>
         <button class="btn" @click="goAssign">Phân công</button>
@@ -154,13 +154,16 @@ const goDetail = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
   router.push(`/admin/campaigns/${code}`);
-  
 };
 
+const isEditDisabled = computed(() => {
+  const s = normalized.value.status?.toUpperCase();
+  return s === 'COMPLETED' || s === 'CANCELLED';
+});
 const goEdit = () => {
   const code = normalized.value.campaignCode;
-  if (!code) return;
-  router.push(`/admin/campaigns/${code}/edit`);
+  if (!code || isEditDisabled.value) return;
+  router.push(`/admin/CampaignsEdit/${code}`);
 };
 
 const goAnalytics = () => {
