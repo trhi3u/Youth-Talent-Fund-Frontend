@@ -10,7 +10,7 @@
 <script setup>
 import { reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import CampaignForm from '@/components/campaign/CampaignForm.vue';
+import CampaignForm from '@/components/campaign/CampaignCreateForm.vue';
 import { useStaffStore } from '@/stores/staffStore';
 
 const router = useRouter();
