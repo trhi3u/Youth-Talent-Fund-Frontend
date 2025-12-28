@@ -181,7 +181,10 @@ const buildPayload = () => {
   const fd = new FormData();
   console.log('DEBUG imageFile.value:', imageFile.value);
   if (imageFile.value) fd.append('image', imageFile.value);
-  fd.append('data', JSON.stringify(data));
+  fd.append(
+    'data',
+    new Blob([JSON.stringify(data)], { type: 'application/json' })
+  );
   return fd;
 };
 
