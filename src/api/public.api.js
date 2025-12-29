@@ -27,3 +27,6 @@ export async function sendChatMessage(message) {
     throw err;
   }
 }
+
+export const getCampaignsTotal = params =>
+  http.get('/public/campaign/total', { params });

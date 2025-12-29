@@ -13,7 +13,7 @@
           <div class="meta">
             <p class="label">Tổng chiến dịch</p>
             <p class="value">{{ totals.total }}</p>
-            <p class="hint">Tất cả chiến dịch trong hệ thống</p>
+            <p class="hint">Tất cả chiến dịch</p>
           </div>
         </div>
 

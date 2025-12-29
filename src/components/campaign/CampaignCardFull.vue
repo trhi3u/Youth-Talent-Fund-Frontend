@@ -21,9 +21,13 @@
 
       <p class="desc" v-else>{{ normalized.description || 'Không có mô tả' }}</p>
 
+
       <div class="metrics compact" v-if="role === 'ADMIN'">
         <div class="metric">
           <p class="value">{{ progress }}%</p>
+          <div class="progress">
+            <div class="bar" :style="{ width: progress + '%' }"></div>
+          </div>
         </div>
       </div>
 
@@ -38,7 +42,10 @@
         </div>
         <div class="metric">
           <p class="label">Tiến độ</p>
-          <p class="value">{{ progress }}</p>
+          <p class="value">{{ progress }}%</p>
+          <div class="progress">
+            <div class="bar" :style="{ width: progress + '%' }"></div>
+          </div>
         </div>
       </div>
 
@@ -371,13 +378,17 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
   background: rgba(9, 209, 199, 0.12);
   border-radius: 999px;
   overflow: hidden;
+  margin-top: 6px;
 }
 
 .bar {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  height: 100%;
   background: linear-gradient(90deg, #09d1c7 0%, #46dfb1 100%);
   border-radius: 999px;
+  transition: width 0.5s cubic-bezier(.4,0,.2,1);
 }
 
 .progress-foot {

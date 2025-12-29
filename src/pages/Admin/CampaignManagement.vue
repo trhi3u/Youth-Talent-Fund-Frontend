@@ -19,6 +19,7 @@
           type="search"
           v-model="keyword"
           placeholder="Tìm kiếm chiến dịch..."
+          @keyup.enter="onSearch"
         />
       </label>
 
@@ -29,13 +30,13 @@
             :key="item.value || 'all'"
             type="button"
             :class="['status-btn', { active: item.value === status } ]"
-            @click="applyStatus(item.value)"
+            @click="onStatus(item.value)"
           >
             {{ item.label }}
           </button>
         </div>
 
-        <select class="category-select" v-model="category" @change="applyCategory">
+        <select class="category-select" v-model="category" @change="onCategory">
           <option value="">Tất cả danh mục</option>
           <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">
             {{ opt.label }}
@@ -50,17 +51,29 @@
 
     <div v-else class="grid">
       <CampaignCardFull
-        v-for="item in filteredCampaigns"
+        v-for="item in campaigns"
         :key="item.campaignCode || item.id"
         :campaign="item"
         role="ADMIN"
         @assign="openAssignModal(item)"
       />
-
-      <div v-if="!filteredCampaigns.length" class="empty">
+      <div v-if="!campaigns.length" class="empty">
         <span class="empty-icon" aria-hidden="true">📭</span>
         <p>Không có chiến dịch phù hợp</p>
       </div>
+    </div>
+    <div class="pagination" v-if="totalPages > 1">
+      <button :disabled="page === 0" @click="onPrev">◀ Prev</button>
+      <button
+        v-for="n in paginationPages"
+        :key="n"
+        :class="['page-btn', { active: n === page + 1 }]"
+        @click="typeof n === 'number' && onPage(n - 1)"
+        :disabled="n === '...'"
+      >
+        {{ n }}
+      </button>
+      <button :disabled="page === totalPages - 1" @click="onNext">Next ▶</button>
     </div>
 
     <AssignCampaignToStaff
@@ -72,104 +85,104 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { RouterLink } from 'vue-router';
-import { useCampaignStore } from '@/stores/campaignStore';
 import CampaignCardFull from '@/components/campaign/CampaignCardFull.vue';
 import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
 import { getCategoryOptions } from '@/utils/category';
+import { getCampaigns } from '@/api/public.api';
+
 const showAssignModal = ref(false);
 const assignCampaign = ref(null);
-
 function openAssignModal(campaign) {
   assignCampaign.value = campaign;
   showAssignModal.value = true;
 }
 
-const campaignStore = useCampaignStore();
-const loading = computed(() => campaignStore.loading);
+const campaigns = ref([]);
+const page = ref(0);
+const size = ref(10);
+const totalPages = ref(0);
+const keyword = ref('');
+const status = ref('');
+const category = ref('');
+const loading = ref(false);
 
 const statusOptions = [
-  { label: 'Tất cả', value: undefined },
+  { label: 'Tất cả', value: '' },
   { label: 'Đang diễn ra', value: 'IN_PROGRESS' },
   { label: 'Đã hoàn thành', value: 'COMPLETED' }
 ];
-
 const categoryOptions = getCategoryOptions();
 
-const keyword = ref('');
-const status = ref();
-const category = ref('');
-
-const getDaysRemaining = campaign => {
-  const durationValue = Number(campaign.durationDays ?? campaign.daysLeft);
-  if (Number.isFinite(durationValue)) return durationValue;
-
-  if (campaign.endDate) {
-    const end = new Date(campaign.endDate);
-    const today = new Date();
-    return Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+async function fetchCampaigns() {
+  loading.value = true;
+  try {
+    const params = {
+      keyword: keyword.value || undefined,
+      status: status.value || undefined,
+      category: category.value || undefined,
+      page: page.value,
+      size: size.value
+    };
+    const res = await getCampaigns(params);
+    campaigns.value = res?.content || [];
+    totalPages.value = res?.totalPages || 0;
+  } catch (e) {
+    campaigns.value = [];
+    totalPages.value = 0;
   }
+  loading.value = false;
+}
 
-  return null;
-};
+function onSearch() {
+  page.value = 0;
+  fetchCampaigns();
+}
+function onStatus(val) {
+  status.value = val;
+  page.value = 0;
+  fetchCampaigns();
+}
+function onCategory() {
+  page.value = 0;
+  fetchCampaigns();
+}
+function onPrev() {
+  if (page.value > 0) {
+    page.value--;
+    fetchCampaigns();
+  }
+}
+function onNext() {
+  if (page.value < totalPages.value - 1) {
+    page.value++;
+    fetchCampaigns();
+  }
+}
+function onPage(p) {
+  if (p !== page.value) {
+    page.value = p;
+    fetchCampaigns();
+  }
+}
 
-const campaigns = computed(() => {
-  const raw = Array.isArray(campaignStore.campaigns) ? campaignStore.campaigns : campaignStore.campaigns?.content || [];
-  return raw.map(item => ({
-    ...item,
-    campaignCode: item.campaignCode || item.code || item.id,
-    title: item.title || item.name || 'Chiến dịch',
-    description: item.description || item.story || '',
-    currentAmount: Number(item.currentAmount ?? item.raised ?? 0),
-    targetAmount: Number(item.targetAmount ?? item.goal ?? 0),
-    durationDays: item.durationDays ?? item.daysLeft,
-    endDate: item.endDate || item.closedAt || null,
-    category: item.category || item.categoryName || item.topic || ''
-  }));
+const paginationPages = computed(() => {
+  const total = totalPages.value;
+  const current = page.value + 1;
+  if (total <= 4) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 3) {
+    return [1, 2, 3, 4, '...', total];
+  }
+  if (current >= total - 2) {
+    return [1, '...', total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
 });
 
-const filteredCampaigns = computed(() => {
-  const key = keyword.value.trim().toLowerCase();
-  const stat = status.value;
-  const cat = (category.value || '').trim().toLowerCase();
-
-  return campaigns.value.filter(c => {
-    const days = getDaysRemaining(c);
-
-    if (stat === 'IN_PROGRESS') {
-      if (days !== null && days <= 0) return false;
-    }
-
-    if (stat === 'COMPLETED') {
-      if (days === null || days > 0) return false;
-    }
-
-    if (cat) {
-      const campaignCategory = (c.category || '').toString().toLowerCase();
-      if (!campaignCategory || campaignCategory !== cat) return false;
-    }
-
-    if (key) {
-      const title = (c.title || '').toString().toLowerCase();
-      if (!title.includes(key)) return false;
-    }
-
-    return true;
-  });
-});
-
-const applyStatus = value => {
-  status.value = value;
-};
-
-const applyCategory = () => {
-  category.value = category.value || '';
-};
-
-onMounted(() => {
-  campaignStore.fetchAll();
-});
+onMounted(fetchCampaigns);
 </script>
 
 <style scoped lang="scss">
@@ -317,5 +330,51 @@ h1 { margin: 0; }
 
 @media (max-width: 640px) {
   .filter-right { justify-content: flex-start; }
+}
+// ...existing code...
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 0 0;
+
+  button {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 50%;
+    background: #f4fbf8;
+    color: #0b6c7f;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 2px 8px rgba(9, 209, 199, 0.08);
+    outline: none;
+    position: relative;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #e9ecef;
+    color: #b0b8c1;
+    box-shadow: none;
+  }
+  .page-btn.active {
+    background: linear-gradient(90deg, #09d1c7 0%, #46dfb1 100%);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(9, 209, 199, 0.18);
+    font-weight: 800;
+    border: none;
+    z-index: 1;
+  }
+  button:not(:disabled):hover {
+    background: linear-gradient(90deg, #09d1c7 0%, #46dfb1 100%);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(9, 209, 199, 0.22);
+    transform: translateY(-2px) scale(1.07);
+  }
 }
 </style>

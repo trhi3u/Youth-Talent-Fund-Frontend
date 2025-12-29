@@ -7,18 +7,9 @@
         <div class="stats">
           <div class="stat-item">
             <span class="stat-label">Tổng cộng:</span>
-            <span class="stat-value">{{ campaignStats.total }} Chiến dịch</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Đang diễn ra:</span>
-            <span class="stat-value">{{ campaignStats.inProgress }} Chiến dịch</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Đã hoàn thành:</span>
-            <span class="stat-value">{{ campaignStats.completed }} Chiến dịch</span>
+            <span class="stat-value">{{ totalElements }} Chiến dịch</span>
           </div>
         </div>
-
         <div class="filter-bar">
           <div class="filter-left">
             <label class="search-bar">
@@ -30,13 +21,12 @@
               </span>
               <input
                 type="search"
-                v-model="keywordInput"
+                v-model="keyword"
                 placeholder="Tìm kiếm chiến dịch..."
-                @keyup.enter="applyKeyword"
+                @keyup.enter="onSearch"
               />
             </label>
           </div>
-
           <div class="filter-right">
             <div class="status-group">
               <button
@@ -44,13 +34,12 @@
                 :key="item.value || 'all'"
                 type="button"
                 :class="['status-btn', { active: item.value === status } ]"
-                @click="applyStatus(item.value)"
+                @click="onStatus(item.value)"
               >
                 {{ item.label }}
               </button>
             </div>
-
-            <select class="category-select" v-model="category" @change="applyCategory">
+            <select class="category-select" v-model="category" @change="onCategory">
               <option value="">Tất cả danh mục</option>
               <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">
                 {{ opt.label }}
@@ -60,175 +49,125 @@
         </div>
       </div>
     </div>
-
     <div class="grid" v-if="!loading">
-      <CampaignCard v-for="item in list" :key="item.code" :campaign="item" />
-      <div v-if="!list.length" class="empty">
+      <CampaignCard v-for="item in campaigns" :key="item.code" :campaign="item" />
+      <div v-if="!campaigns.length" class="empty">
         <span class="empty-icon" aria-hidden="true">📭</span>
-        <p>Không có chiến dịch phù hợp với bộ lọc đã chọn</p>
+        <p>Không có chiến dịch phù hợp</p>
       </div>
     </div>
-
     <div class="grid" v-else>
       <CampaignCard v-for="n in 6" :key="n" :loading="true" />
+    </div>
+    <div class="pagination" v-if="totalPages > 1">
+      <button :disabled="page === 0" @click="onPrev">◀ Prev</button>
+      <button
+        v-for="n in paginationPages"
+        :key="n"
+        :class="['page-btn', { active: n === page + 1 }]"
+        @click="typeof n === 'number' && onPage(n - 1)"
+        :disabled="n === '...'"
+      >
+        {{ n }}
+      </button>
+      <button :disabled="page === totalPages - 1" @click="onNext">Next ▶</button>
     </div>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, onActivated, watch, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onMounted, computed } from 'vue';
 import CampaignCard from '@/components/campaign/CampaignCard.vue';
-import { useCampaignStore } from '@/stores/campaignStore';
-import fallbackImage from '@/assets/image/background.png';
 import { getCategoryOptions } from '@/utils/category';
+import { getCampaigns } from '@/api/public.api';
 
-const campaignStore = useCampaignStore();
-const loading = computed(() => campaignStore.loading);
-const campaigns = computed(() => {
-  const raw = campaignStore.campaigns;
-  const list = Array.isArray(raw) ? raw : raw?.content || [];
-  return list.map(item => ({
-    ...item,
-    code: item.code || item.id || item.slug || item.title,
-    title: item.title || item.name || 'Chiến dịch',
-    description: item.description || '',
-    coverImage: item.coverImage || item.coverImagePath || fallbackImage,
-    currentAmount: Number(item.currentAmount ?? item.raised ?? 0),
-    targetAmount: Number(item.targetAmount ?? item.goal ?? 0),
-    durationDays: item.durationDays ?? item.daysLeft,
-    endDate: item.endDate || item.closedAt || null
-  }));
-});
-
-const getDaysRemaining = campaign => {
-  const durationValue = Number(campaign.durationDays);
-  if (Number.isFinite(durationValue)) return durationValue;
-
-  if (campaign.endDate) {
-    const end = new Date(campaign.endDate);
-    const today = new Date();
-    const diff = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-    return diff;
-  }
-
-  return null;
-};
-
-const list = computed(() => {
-  const currentStatus = status.value;
-  const currentCategory = (category.value || '').trim();
-  const keywordTerm = (keywordInput.value || '').trim().toLowerCase();
-
-  return campaigns.value.filter(c => {
-    const days = getDaysRemaining(c);
-
-    if (currentStatus === 'IN_PROGRESS') {
-      if (days === null) return true; // keep if no data
-      if (days <= 0) return false;
-    }
-
-    if (currentStatus === 'COMPLETED') {
-      if (days === null || days > 0) return false;
-    }
-
-    if (currentCategory) {
-      const campaignCategory = (c.category || '').toString().trim();
-      if (!campaignCategory || campaignCategory.toLowerCase() !== currentCategory.toLowerCase()) return false;
-    }
-
-    if (keywordTerm) {
-      const title = (c.title || '').toString().toLowerCase();
-      if (!title.includes(keywordTerm)) return false;
-    }
-
-    return true;
-  });
-});
-
-const campaignStats = computed(() => {
-  const total = campaigns.value.length;
-  const inProgress = campaigns.value.filter(c => {
-    const daysLeft = c.durationDays ?? c.daysLeft ?? 0;
-    return Number(daysLeft) <= 0;
-  }).length;
-  const completed = total - inProgress;
-  
-  return { total, inProgress, completed };
-});
-
-const route = useRoute();
-const router = useRouter();
-
-const keywordInput = ref((route.query.keyword || '').toString());
-const status = computed(() => (route.query.status || '').toString() || undefined);
-const category = ref((route.query.category || '').toString());
+const campaigns = ref([]);
+const page = ref(0);
+const size = ref(10);
+const totalPages = ref(0);
+const totalElements = ref(0);
+const keyword = ref('');
+const status = ref('');
+const category = ref('');
+const loading = ref(false);
 
 const statusOptions = [
-  { label: 'Tất cả', value: undefined },
+  { label: 'Tất cả', value: '' },
   { label: 'Đang diễn ra', value: 'IN_PROGRESS' },
   { label: 'Đã hoàn thành', value: 'COMPLETED' }
 ];
-
 const categoryOptions = getCategoryOptions();
 
-const fetchParams = computed(() => ({
-  keyword: keywordInput.value.trim() || undefined,
-  category: category.value || undefined
-}));
-
-const updateQuery = updates => {
-  const query = {
-    keyword: Object.prototype.hasOwnProperty.call(updates, 'keyword') ? updates.keyword : route.query.keyword,
-    status: Object.prototype.hasOwnProperty.call(updates, 'status') ? updates.status : route.query.status,
-    category: Object.prototype.hasOwnProperty.call(updates, 'category') ? updates.category : route.query.category
-  };
-
-  Object.keys(query).forEach(key => {
-    if (query[key] === undefined || query[key] === null || query[key] === '') {
-      delete query[key];
-    }
-  });
-
-  router.push({ path: '/campaigns', query });
-};
-
-const applyKeyword = () => {
-  keywordInput.value = (keywordInput.value || '').trim();
-  updateQuery({ keyword: keywordInput.value });
-};
-
-const applyStatus = value => {
-  updateQuery({ status: value });
-};
-
-const applyCategory = () => {
-  updateQuery({ category: category.value });
-};
-
-const syncFromRoute = () => {
-  keywordInput.value = (route.query.keyword || '').toString();
-  category.value = (route.query.category || '').toString();
-};
-
-const fetchCampaigns = async () => {
+async function fetchCampaigns() {
+  loading.value = true;
   try {
-    await campaignStore.fetchAll(fetchParams.value);
-  } catch (err) {
-    console.error('Fetch campaigns failed', err);
+    const params = {
+      keyword: keyword.value || undefined,
+      status: status.value || undefined,
+      category: category.value || undefined,
+      page: page.value,
+      size: size.value
+    };
+    const res = await getCampaigns(params);
+    campaigns.value = res?.content || [];
+    totalPages.value = res?.totalPages || 0;
+    totalElements.value = res?.totalElements || 0;
+  } catch (e) {
+    campaigns.value = [];
+    totalPages.value = 0;
+    totalElements.value = 0;
   }
-};
+  loading.value = false;
+}
+
+function onSearch() {
+  page.value = 0;
+  fetchCampaigns();
+}
+function onStatus(val) {
+  status.value = val;
+  page.value = 0;
+  fetchCampaigns();
+}
+function onCategory() {
+  page.value = 0;
+  fetchCampaigns();
+}
+function onPrev() {
+  if (page.value > 0) {
+    page.value--;
+    fetchCampaigns();
+  }
+}
+function onNext() {
+  if (page.value < totalPages.value - 1) {
+    page.value++;
+    fetchCampaigns();
+  }
+}
+function onPage(p) {
+  if (p !== page.value) {
+    page.value = p;
+    fetchCampaigns();
+  }
+}
+
+const paginationPages = computed(() => {
+  const total = totalPages.value;
+  const current = page.value + 1;
+  if (total <= 4) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 3) {
+    return [1, 2, 3, 4, '...', total];
+  }
+  if (current >= total - 2) {
+    return [1, '...', total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+});
 
 onMounted(fetchCampaigns);
-onActivated(fetchCampaigns);
-watch(
-  () => route.query,
-  () => {
-    syncFromRoute();
-    fetchCampaigns();
-  },
-  { deep: true }
-);
 </script>
 
 <style scoped lang="scss">
@@ -442,6 +381,52 @@ watch(
     flex-wrap: nowrap;
     justify-content: flex-end;
     gap: 8px;
+  }
+}
+// ...existing code...
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 0 0;
+
+  button {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 50%;
+    background: #f4fbf8;
+    color: var(--primary-strong);
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 2px 8px rgba(9, 209, 199, 0.08);
+    outline: none;
+    position: relative;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #e9ecef;
+    color: #b0b8c1;
+    box-shadow: none;
+  }
+  .page-btn.active {
+    background: linear-gradient(90deg, #09d1c7 0%, #46dfb1 100%);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(9, 209, 199, 0.18);
+    font-weight: 800;
+    border: none;
+    z-index: 1;
+  }
+  button:not(:disabled):hover {
+    background: linear-gradient(90deg, #09d1c7 0%, #46dfb1 100%);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(9, 209, 199, 0.22);
+    transform: translateY(-2px) scale(1.07);
   }
 }
 </style>

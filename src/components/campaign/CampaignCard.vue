@@ -100,6 +100,7 @@ const daysLeft = computed(() => {
 const campaignStatus = computed(() => {
   const daysRemaining = daysLeft.value;
   if (daysRemaining === null) return null;
+  if (normalized.value.status === 'CANCELLED') return 'Đã hủy';
   return daysRemaining <= 0 ? 'Hoàn thành' : `${daysRemaining} ngày còn lại`;
 });
 

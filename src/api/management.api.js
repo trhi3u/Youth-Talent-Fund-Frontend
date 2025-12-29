@@ -12,3 +12,5 @@ export const updateCampaignStatus = (code, payload) =>
 export const createReport = (campaignCode, formData) =>
   http.post(`/management/${campaignCode}/reports`, formData);
 
+export const getTotalDonationStatistic = params =>
+  http.get('/management/statistic/total-donation', { params });
