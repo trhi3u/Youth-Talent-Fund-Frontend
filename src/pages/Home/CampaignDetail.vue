@@ -42,7 +42,6 @@
                 <button type="button" class="chip" @click="presetAmount(100000)">100.000đ</button>
                 <button type="button" class="chip" @click="presetAmount(200000)">200.000đ</button>
                 <button type="button" class="chip" @click="presetAmount(500000)">500.000đ</button>
-                <button type="button" class="chip" @click="presetAmount(1000000)">1.000.000đ</button>
               </div>
             </div>
 
@@ -59,41 +58,54 @@
                 />
                 <span class="affix">VND</span>
               </div>
+              <span v-if="formErrors.amount" class="form-error">{{ formErrors.amount }}</span>
             </label>
             <label>
               <span>Họ tên</span>
               <input type="text" v-model="donationForm.name" placeholder="Tên của bạn" />
+              <span v-if="formErrors.name" class="form-error">{{ formErrors.name }}</span>
             </label>
             <label>
               <span>Email</span>
               <input type="email" v-model="donationForm.email" placeholder="email@example.com" />
+              <span v-if="formErrors.email" class="form-error">{{ formErrors.email }}</span>
             </label>
             <label>
               <span>Số điện thoại</span>
               <input type="tel" v-model="donationForm.phoneNumber" placeholder="*********" />
+              <span v-if="formErrors.phoneNumber" class="form-error">{{ formErrors.phoneNumber }}</span>
             </label>
             <label class="full">
               <span>Lời nhắn</span>
               <textarea rows="3" v-model="donationForm.message" placeholder="Lời nhắn (tuỳ chọn)" />
             </label>
 
-            <div class="inline">
+            <div class="inline vertical-checkboxes">
               <label class="checkbox">
                 <input type="checkbox" v-model="donationForm.isAnonymous" />
                 <span>Quyên góp ẩn danh</span>
               </label>
               <label class="checkbox">
                 <input type="checkbox" v-model="donationForm.sendMail" />
-                <span>Gửi biên lai về email</span>
+                <span>Gửi về email</span>
               </label>
             </div>
           </div>
 
           <div v-else-if="donationStep === 2" class="qr-step">
             <p class="muted">Vui lòng quét mã QR để hoàn tất quyên góp</p>
-            <div class="qr-box" v-if="qrCode">
-              <img :src="qrCode" alt="QR Code" />
-            </div>
+            <DonateQR
+              v-if="qrCode"
+              :qr-string="qrCode"
+              :amount="donationForm.amount"
+              :message="donationForm.message"
+              :campaign-code="campaignCode"
+              bank-name="Ngân hàng TMCP Quân đội"
+              account-number="VQRQAGETT7544"
+              account-name="VU TUAN NAM"
+              @close="handleCloseQR"
+              @cancel="handleCloseQR"
+            />
             <p v-else class="muted">Đang tạo mã QR...</p>
             <button class="btn ghost" :disabled="!checkoutUrl" @click="openCheckout">Mở trang thanh toán</button>
           </div>
@@ -183,6 +195,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { createDonation, getCampaignDetail } from '@/api/public.api';
 import fallbackImage from '@/assets/image/background.png';
 import { useAuthStore } from '@/stores/authStore';
+import DonateQR from '@/components/donate/DonateQR.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -199,12 +212,13 @@ const donationForm = ref({
   amount: '',
   message: '',
   isAnonymous: false,
-  sendMail: true
+  sendMail: false
 });
 const amountDisplay = ref('');
 const qrCode = ref('');
 const checkoutUrl = ref('');
 const isSubmitting = ref(false);
+const formErrors = ref({});
 
 const campaignCode = computed(() => route.params.campaignCode || route.params.id || route.params.code);
 const isDonationMode = computed(() => route.query.mode === 'donation');
@@ -248,8 +262,7 @@ const fetchDetail = async code => {
     campaign.value = normalizeCampaign(res || {});
   } catch (err) {
     campaign.value = {};
-    console.error('Fetch campaign detail failed', err);
-    alert(err?.message || 'Không thể tải thông tin chiến dịch');
+    // Có thể log lỗi nếu cần
   } finally {
     loading.value = false;
   }
@@ -295,8 +308,21 @@ const goDonation = () => {
 
 const submitDonation = async () => {
   if (!isDonationMode.value) return;
+  formErrors.value = {};
   const amount = Number(donationForm.value.amount || 0);
-  if (!amount || amount <= 0) return;
+  if (!amount || amount < 2000) {
+    formErrors.value.amount = 'Số tiền phải từ 2.000 VND';
+  }
+  if (!donationForm.value.name || !donationForm.value.name.trim()) {
+    formErrors.value.name = 'Họ tên không được để trống';
+  }
+  if (!donationForm.value.email || !donationForm.value.email.trim()) {
+    formErrors.value.email = 'Email không được để trống';
+  }
+  if (!donationForm.value.phoneNumber || !donationForm.value.phoneNumber.trim()) {
+    formErrors.value.phoneNumber = 'Số điện thoại không được để trống';
+  }
+  if (Object.keys(formErrors.value).length > 0) return;
   const code = campaignCode.value;
   if (!code) return;
 
@@ -309,7 +335,7 @@ const submitDonation = async () => {
       amount,
       message: donationForm.value.message,
       isAnonymous: donationForm.value.isAnonymous,
-      sendMail: true,
+      sendMail: donationForm.value.sendMail,
       campaignCode: code,
       returnUrl: `${window.location.origin}/campaign/${code}?mode=donation&donate=success`,
       cancelUrl: `${window.location.origin}/campaign/${code}?mode=donation&donate=cancel`
@@ -320,12 +346,18 @@ const submitDonation = async () => {
     checkoutUrl.value = res?.checkoutUrl || res?.url || '';
     donationStep.value = 2;
   } catch (err) {
-    console.error('Create donation failed', err);
-    alert(err?.message || 'Không thể tạo giao dịch quyên góp');
+    // Có thể log lỗi nếu cần
   } finally {
     isSubmitting.value = false;
   }
 };
+
+
+function handleCloseQR() {
+  donationStep.value = 1;
+  qrCode.value = '';
+  checkoutUrl.value = '';
+}
 
 const openCheckout = () => {
   if (!checkoutUrl.value) return;
@@ -338,6 +370,7 @@ const backToCampaign = () => {
   router.replace(`/campaign/${code}`);
 };
 
+
 onMounted(() => {
   syncTabFromQuery();
   fetchDetail(campaignCode.value);
@@ -348,12 +381,10 @@ watch(
   () => route.params.campaignCode || route.params.id,
   newCode => fetchDetail(newCode)
 );
-
 watch(
   () => route.query.mode,
   () => syncTabFromQuery()
 );
-
 watch(
   () => route.query.donate,
   () => syncTabFromQuery()
@@ -404,6 +435,25 @@ watch(
   color: var(--primary-strong);
 }
 
+
+.form-grid label.checkbox {
+  margin-top: 10px;
+  margin-left: 10px;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-grid label.checkbox input {
+  flex-shrink: 0;
+}
+
+.form-grid label.checkbox span {
+  line-height: 1.4;
+}
+
+
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -425,6 +475,8 @@ watch(
   font-size: 12px;
 }
 
+
+
 .donate-panel {
   display: grid;
   gap: 12px;
@@ -438,6 +490,13 @@ watch(
 .panel-body {
   display: grid;
   gap: 12px;
+}
+
+.form-error {
+  color: #e53935;
+  font-size: 13px;
+  margin-top: 2px;
+  font-weight: 600;
 }
 
 .form-grid {
@@ -526,6 +585,11 @@ watch(
   gap: 12px;
   color: #35516d;
   flex-wrap: wrap;
+}
+.vertical-checkboxes {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .checkbox {
