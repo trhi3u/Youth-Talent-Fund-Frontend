@@ -79,9 +79,19 @@ const isAdmin = computed(() => roles.value.includes('ROLE_ADMIN') || primaryRole
 const isStaff = computed(() => roles.value.includes('ROLE_STAFF') || primaryRole.value === 'STAFF');
 
 const displayName = computed(() => user.value.fullName || user.value.name || user.value.email || 'Người dùng');
-const userAvatar = computed(
-  () => user.value?.avatarUrl || user.value?.avatarPath || user.value?.avatarPaths?.originalPath || ''
-);
+const userAvatar = computed(() => {
+  const u = user.value || {};
+  const paths = u.avatarPaths || u.avatarPath || {};
+  return (
+    paths.original ||
+    paths.thumbnail ||
+    paths.originalPath ||
+    paths.thumbnailPath ||
+    u.avatarUrl ||
+    u.avatarPath ||
+    ''
+  );
+});
 const avatarUrl = computed(() => userAvatar.value || defaultAvatar);
 const hasCustomAvatar = computed(() => Boolean(userAvatar.value));
 const initials = computed(() => (displayName.value || 'ND').trim().slice(0, 1).toUpperCase());
@@ -101,7 +111,7 @@ const baseNav = [
 
 const roleNav = computed(() => {
   if (isAdmin.value) return [...baseNav, { label: 'Quản trị', to: '/admin/dashboard' }];
-  if (isStaff.value) return [...baseNav, { label: 'Staff', to: '/staff/dashboard' }];
+  if (isStaff.value) return [...baseNav, { label: 'Quản lý', to: '/staff/dashboard' }];
   return baseNav; 
 });
 

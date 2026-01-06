@@ -182,7 +182,13 @@
 
           <div v-else class="skeleton tall" />
 
-          <button class="btn primary" :disabled="loading || isCompleted" @click="goDonation">{{ isCompleted ? 'Đã hoàn thành' : 'Ủng hộ' }}</button>
+          <button
+            class="btn primary"
+            :disabled="loading || isCompleted || isOnHold || isPending"
+            @click="goDonation"
+          >
+            {{ donateLabel }}
+          </button>
         </div>
       </div>
     </div>
@@ -234,12 +240,24 @@ const progress = computed(() => {
   return Math.min(100, Math.round((current / target) * 100));
 });
 
+const statusUpper = computed(() => (campaign.value.status || '').toUpperCase());
+
 const isCompleted = computed(() => {
-  if (!campaign.value.endDate) return false;
+  if (!campaign.value.endDate) return statusUpper.value === 'COMPLETED';
   const end = new Date(campaign.value.endDate);
   const today = new Date();
   const diff = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-  return diff <= 0;
+  return diff <= 0 || statusUpper.value === 'COMPLETED';
+});
+
+const isOnHold = computed(() => statusUpper.value === 'ON_HOLD');
+const isPending = computed(() => statusUpper.value === 'PENDING');
+
+const donateLabel = computed(() => {
+  if (isPending.value) return 'Chưa bắt đầu';
+  if (isOnHold.value) return 'Tạm dừng';
+  if (isCompleted.value) return 'Đã hoàn thành';
+  return 'Ủng hộ';
 });
 
 const formatCurrency = value => (Number(value) || 0).toLocaleString('vi-VN');

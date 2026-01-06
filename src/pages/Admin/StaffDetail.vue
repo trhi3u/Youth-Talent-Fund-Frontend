@@ -59,39 +59,43 @@
       <!-- Danh sách chiến dịch -->
       <div class="card campaign-list">
         <h3>Chiến dịch được phân công</h3>
-        <div v-if="campaigns.length === 0" class="empty">Nhân viên này chưa được phân công chiến dịch nào</div>
-        <table v-else class="campaign-table">
-          <thead>
-            <tr>
-              <th>Mã chiến dịch</th>
-              <th>Tên chiến dịch</th>
-              <th>Trạng thái</th>
-              <th>Thời gian</th>
-              <th>Tiến độ</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="c in campaigns" :key="c.code">
-              <td>{{ c.code }}</td>
-              <td>{{ c.name }}</td>
-              <td>{{ c.status }}</td>
-              <td>{{ formatDate(c.startDate) }} - {{ formatDate(c.endDate) }}</td>
-              <td>
-                <span>{{ formatMoney(c.currentAmount) }}/{{ formatMoney(c.targetAmount) }}</span>
-                <span class="percent">({{ percent(c.currentAmount, c.targetAmount) }}%)</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-if="campaignsLoading" class="grid">
+          <CampaignCardFull v-for="n in 4" :key="n" :loading="true" role="ADMIN" />
+        </div>
+        <div v-else-if="campaigns.length === 0" class="empty">
+          <span class="empty-icon" aria-hidden="true">📭</span>
+          <p>Nhân viên này chưa được phân công chiến dịch nào</p>
+        </div>
+        <div v-else class="grid">
+          <CampaignCardFull
+            v-for="c in campaigns"
+            :key="c.campaignCode || c.code || c.id"
+            :campaign="c"
+            role="ADMIN"
+          />
+        </div>
       </div>
     </div>
   </section>
+
+  <AssignCampaignToStaff
+    v-if="showAssignModal"
+    :visible="showAssignModal"
+    :staff="staff"
+    @close="closeAssignModal"
+    @assign="handleAssign"
+  />
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getStaffDetail, lockStaff, unlockStaff, deleteStaff } from '@/api/admin.api';
+import { getStaffCampaigns, updateCampaign } from '@/api/management.api';
+import { getCampaignDetail } from '@/api/public.api';
+import { toUtcString } from '@/utils/date';
+import CampaignCardFull from '@/components/campaign/CampaignCardFull.vue';
+import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
 import defaultAvatar from '@/assets/image/avatar.png';
 
 const route = useRoute();
@@ -101,10 +105,13 @@ const staffCode = route.params.staffCode;
 const staff = ref({});
 const campaigns = ref([]);
 const loading = ref(true);
+const campaignsLoading = ref(false);
 const error = ref('');
 const successMessage = ref("");
 const showDeleteConfirm = ref(false);
 const deleting = ref(false);
+const showAssignModal = ref(false);
+const assignLoading = ref(false);
 
 const fetchStaff = async () => {
   loading.value = true;
@@ -113,7 +120,6 @@ const fetchStaff = async () => {
     const res = await getStaffDetail(staffCode);
     if (res && res.code) {
       staff.value = res;
-      campaigns.value = res.campaigns || [];
     } else {
       throw new Error('Không tìm thấy nhân viên');
     }
@@ -124,7 +130,22 @@ const fetchStaff = async () => {
   }
 };
 
-onMounted(fetchStaff);
+const fetchCampaigns = async () => {
+  campaignsLoading.value = true;
+  try {
+    const res = await getStaffCampaigns(staffCode);
+    campaigns.value = res?.content || res || [];
+  } catch (err) {
+    campaigns.value = [];
+  } finally {
+    campaignsLoading.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchStaff();
+  fetchCampaigns();
+});
 
 const avatarUrl = computed(() => staff.value.avatarPath || staff.value.avatarPaths?.originalPath || defaultAvatar);
 const createdDate = computed(() => {
@@ -133,16 +154,8 @@ const createdDate = computed(() => {
   return d.toLocaleDateString('vi-VN');
 });
 
-const formatDate = (d) => {
-  if (!d) return '---';
-  const date = new Date(d);
-  return date.toLocaleDateString('vi-VN');
-};
-const formatMoney = (v) => v ? v.toLocaleString('vi-VN') + '₫' : '0₫';
-const percent = (a, b) => b ? Math.round((a / b) * 100) : 0;
-
 const goAssign = () => {
-  router.push({ name: 'admin-assign', query: { staffCode: staff.value.code } });
+  showAssignModal.value = true;
 };
 const goBack = () => {
   router.push('/admin/staff');
@@ -187,8 +200,42 @@ const deleteStaffAction = async () => {
     deleting.value = false;
   }
 };
+
+const closeAssignModal = () => {
+  showAssignModal.value = false;
+};
+
+const handleAssign = async ({ staffId, campaignId }) => {
+  if (assignLoading.value || !staffId || !campaignId) return;
+  assignLoading.value = true;
+  try {
+    const detail = await getCampaignDetail(campaignId);
+    const data = {
+      title: detail.title || detail.name || 'Chiến dịch',
+      description: detail.description || detail.story || '',
+      location: detail.location || null,
+      story: detail.story || detail.description || null,
+      targetAmount: detail.targetAmount?.toString() || detail.goal?.toString() || '',
+      startDate: detail.startDate ? toUtcString(detail.startDate) : null,
+      endDate: detail.endDate ? toUtcString(detail.endDate) : null,
+      category: detail.category || detail.categoryName || detail.topic || '',
+      assigneeCode: staffId
+    };
+    const fd = new FormData();
+    fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    await updateCampaign(detail.campaignCode || detail.code || detail.campaignId, fd);
+    await fetchCampaigns();
+    closeAssignModal();
+    window.location.reload();
+  } catch (err) {
+    successMessage.value = err?.message || 'Phân công thất bại';
+    setTimeout(() => { successMessage.value = ''; }, 2000);
+  } finally {
+    assignLoading.value = false;
+  }
+};
 </script>
-<style>
+<style scoped>
 .spinner {
   display: inline-block;
   width: 18px;
@@ -258,18 +305,11 @@ const deleteStaffAction = async () => {
 .campaign-list {
   padding: 24px;
 }
-.campaign-table {
-  width: 100%;
-  border-collapse: collapse;
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
   margin-top: 12px;
-}
-.campaign-table th, .campaign-table td {
-  border: 1px solid #e0e0e0;
-  padding: 8px 12px;
-  text-align: left;
-}
-.campaign-table th {
-  background: #f3f7f9;
 }
 .percent {
   color: #15919B;
@@ -281,6 +321,7 @@ const deleteStaffAction = async () => {
   padding: 24px 0;
   text-align: center;
 }
+.empty-icon { font-size: 20px; display: block; }
 .loading {
   text-align: center;
   color: #15919B;

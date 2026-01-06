@@ -3,7 +3,21 @@ import { login as loginApi } from '@/api/auth.api';
 
 const STORAGE_KEY = 'auth_state_v1';
 
-const normalizeRole = role => (role || '').replace(/^ROLE_/i, '').toUpperCase();
+const normalizeRole = role => {
+  if (role && typeof role === 'object') {
+    const candidate = role.authority || role.role || role.name || role.code || role.id || '';
+    return normalizeRole(candidate);
+  }
+  return (role || '').toString().trim().replace(/^ROLE_/i, '').toUpperCase();
+};
+
+const pickRole = roles => {
+  const list = Array.isArray(roles) ? roles.map(normalizeRole) : [];
+  if (list.includes('STAFF')) return 'STAFF';
+  if (list.includes('ADMIN')) return 'ADMIN';
+  if (list.includes('USER')) return 'USER';
+  return normalizeRole(list[0] || roles?.[0]);
+};
 
 const readStorage = storage => {
   if (!storage) return {};
@@ -66,7 +80,7 @@ export const useAuthStore = defineStore('auth', {
       
       const accessToken = data?.accessToken || data?.token;
       const userInfo = data?.userInfo || data?.user;
-      const role = normalizeRole(userInfo?.roles?.[0] || data?.role || payload?.role || '');
+      const role = pickRole(userInfo?.roles || [data?.role || payload?.role || '']);
 
       if (!userInfo) {
         console.error('[AuthStore] Missing user info in login response');

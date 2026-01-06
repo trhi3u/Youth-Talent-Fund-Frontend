@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import {
-  listStaffCampaigns,
+  getMyCampaigns,
   updateCampaignProgress,
   createCampaign as staffCreateCampaign,
   updateCampaign as staffEditCampaign,
@@ -15,8 +15,9 @@ export const useStaffStore = defineStore('STAFF', {
     transactions: []
   }),
   actions: {
-    async fetchCampaigns() {
-      this.campaigns = await listStaffCampaigns();
+    async fetchCampaigns(params = {}) {
+      const res = await getMyCampaigns(params);
+      this.campaigns = res?.content ?? res ?? [];
       return this.campaigns;
     },
     async createCampaign(payload) {

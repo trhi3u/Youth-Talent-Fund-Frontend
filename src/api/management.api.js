@@ -14,3 +14,9 @@ export const createReport = (campaignCode, formData) =>
 
 export const getTotalDonationStatistic = params =>
   http.get('/management/statistic/total-donation', { params });
+
+export const getStaffCampaigns = staffCode =>
+  http.get(`/management/admin/staff/${staffCode}/campaigns`);
+
+export const getMyCampaigns = params =>
+  http.get('/management/campaigns', { params });

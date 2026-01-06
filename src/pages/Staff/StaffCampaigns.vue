@@ -6,14 +6,14 @@
         <RouterLink class="btn primary" to="/staff/campaigns/create">Tạo chiến dịch</RouterLink>
       </div>
       <div class="grid">
-        <article v-for="item in campaigns" :key="item.id" class="card row">
+        <article v-for="item in campaigns" :key="codeFor(item)" class="card row">
           <div>
             <h3>{{ item.title }}</h3>
             <p>Trạng thái: {{ item.status }}</p>
           </div>
           <div class="actions">
-            <RouterLink :to="`/staff/campaigns/${item.id}/edit`" class="btn ghost">Sửa</RouterLink>
-            <RouterLink :to="`/staff/campaigns/${item.id}/update`" class="btn primary">Cập nhật</RouterLink>
+            <RouterLink :to="`/staff/campaigns/${codeFor(item)}/edit`" class="btn ghost">Sửa</RouterLink>
+            <RouterLink :to="`/staff/campaigns/${codeFor(item)}/update`" class="btn primary">Cập nhật</RouterLink>
           </div>
         </article>
       </div>
@@ -28,6 +28,8 @@ import { useStaffStore } from '@/stores/staffStore';
 
 const staffStore = useStaffStore();
 const campaigns = computed(() => staffStore.campaigns);
+
+const codeFor = item => item?.campaignCode || item?.code || item?.id;
 
 onMounted(() => {
   staffStore.fetchCampaigns();

@@ -142,11 +142,30 @@
 
     <div class="actions-block">
       <button class="btn primary" :disabled="isEditDisabled" @click="goEdit">Chỉnh sửa</button>
-      <button class="btn ghost" " @click="openAssign = true">Phân công nhân viên</button>
-      <button class="btn danger" v-if="canHideOrFinish" @click="hideOrFinish">{{ hideOrFinishLabel }}</button>
+      <button class="btn ghost" @click="openAssign = true">Phân công nhân viên</button>
+      <button
+        class="btn ghost"
+        :disabled="isStatusDisabled"
+        @click="handleStatusChange(statusActions.primary.target)"
+      >
+        {{ statusActions.primary.label }}
+      </button>
+      <button
+        class="btn danger"
+        :disabled="isStatusDisabled"
+        @click="handleStatusChange(statusActions.secondary.target)"
+      >
+        {{ statusActions.secondary.label }}
+      </button>
     </div>
 
-    <AssignStaff v-if="openAssign" :campaignCode="campaign.campaignCode" @close="openAssign = false" @assigned="onAssigned" />
+    <AssignCampaignToStaff
+      v-if="openAssign"
+      :visible="openAssign"
+      :campaign="campaign"
+      @close="openAssign = false"
+      @assign="handleAssign"
+    />
   </section>
   <div v-else class="loading">Đang tải...</div>
 </template>
@@ -158,7 +177,9 @@ import { getCategoryLabel } from '@/utils/category';
 import { useAuthStore } from '@/stores/authStore';
 
 import { getCampaignDetail } from '@/api/public.api';
-import { createReport } from '@/api/management.api';
+import { createReport, updateCampaignStatus, updateCampaign } from '@/api/management.api';
+import { toUtcString } from '@/utils/date';
+import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
 // Form báo cáo minh chứng
 const reportForm = ref({
   title: '',
@@ -212,6 +233,8 @@ const router = useRouter();
 const campaignCode = route.params.campaignCode;
 const campaign = ref(null);
 const openAssign = ref(false);
+const assignLoading = ref(false);
+const isStatusLoading = ref(false);
 
 
 const fetchDetail = async () => {
@@ -222,6 +245,7 @@ const fetchDetail = async () => {
 onMounted(fetchDetail);
 
 const categoryLabel = computed(() => getCategoryLabel(campaign.value?.category));
+const statusUpper = computed(() => campaign.value?.status?.toUpperCase() || '');
 const formatDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '---';
 const formatCurrency = v => v ? v.toLocaleString('vi-VN') : '0';
 const percent = computed(() => {
@@ -239,36 +263,63 @@ const statusMap = {
   CANCELLED: { label: 'Hủy', class: 'cancelled' }
 };
 const statusLabel = computed(() => {
-  const s = campaign.value?.status?.toUpperCase();
+  const s = statusUpper.value;
   return statusMap[s]?.label || s || '';
 });
 const statusClass = computed(() => {
-  const s = campaign.value?.status?.toUpperCase();
+  const s = statusUpper.value;
   return statusMap[s]?.class || '';
 });
 
 const isEditDisabled = computed(() => {
-  const s = campaign.value?.status?.toUpperCase();
+  const s = statusUpper.value;
+  return s !== 'PENDING';
+});
+
+const isActionDisabled = computed(() => {
+  const s = statusUpper.value;
   return s === 'COMPLETED' || s === 'CANCELLED';
 });
+
+const statusActions = computed(() => {
+  const s = statusUpper.value;
+  if (s === 'PENDING') {
+    return {
+      primary: { label: 'Bắt đầu', target: 'IN_PROGRESS' },
+      secondary: { label: 'Hủy bỏ', target: 'CANCELLED' }
+    };
+  }
+  if (s === 'ON_HOLD') {
+    return {
+      primary: { label: 'Tiếp tục', target: 'IN_PROGRESS' },
+      secondary: { label: 'Kết thúc', target: 'COMPLETED' }
+    };
+  }
+  return {
+    primary: { label: 'Tạm dừng', target: 'ON_HOLD' },
+    secondary: { label: 'Kết thúc', target: 'COMPLETED' }
+  };
+});
+
+const isStatusDisabled = computed(() => isActionDisabled.value || isStatusLoading.value);
 const goEdit = () => {
   if (!campaign.value || isEditDisabled.value) return;
   router.push(`/admin/CampaignsEdit/${campaign.value.campaignCode}`);
 };
 
-const hideOrFinish = () => {
- 
+const handleStatusChange = async target => {
+  if (!target || isStatusDisabled.value || !campaign.value) return;
+  const code = campaign.value.campaignCode;
+  isStatusLoading.value = true;
+  try {
+    await updateCampaignStatus(code, { campaignStatus: target });
+    await fetchDetail();
+  } catch (err) {
+    console.error('Update campaign status failed', err);
+  } finally {
+    isStatusLoading.value = false;
+  }
 };
-const hideOrFinishLabel = computed(() => {
-  if (!campaign.value) return '';
-  if (campaign.value.status === 'IN_PROGRESS') return 'Kết thúc chiến dịch';
-  if (campaign.value.status === 'PENDING') return 'Ẩn chiến dịch';
-  return '';
-});
-const canHideOrFinish = computed(() => {
-  if (!campaign.value) return false;
-  return ['IN_PROGRESS', 'PENDING'].includes(campaign.value.status);
-});
 const history = ref([]);
 const historyPage = ref(1);
 const historyPerPage = 2;
@@ -296,9 +347,31 @@ const paginationPages = computed(() => {
   return [1, '...', current - 1, current, current + 1, '...', total];
 });
 const typeLabel = t => t === 'PROGRESS' ? 'Tiến độ' : t === 'EXPENSE' ? 'Chi tiêu' : t === 'CONTRIBUTION' ? 'Đóng góp' : t;
-const onAssigned = () => {
-  openAssign.value = false;
-  fetchDetail();
+const handleAssign = async ({ staffId }) => {
+  assignLoading.value = true;
+  try {
+    const detail = await getCampaignDetail(campaign.value.campaignCode || campaign.value.code || campaign.value.campaignId);
+    const data = {
+      title: detail.title || detail.name || '',
+      description: detail.description || detail.shortDescription || '',
+      story: detail.story || detail.description || null,
+      targetAmount: detail.targetAmount?.toString() || detail.goal?.toString() || '',
+      startDate: detail.startDate ? toUtcString(detail.startDate) : null,
+      endDate: detail.endDate ? toUtcString(detail.endDate) : null,
+      category: detail.category || detail.categoryName || detail.topic || '',
+      assigneeCode: staffId
+    };
+    const fd = new FormData();
+    fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    await updateCampaign(detail.campaignCode || detail.code || detail.campaignId, fd);
+    await fetchDetail();
+    openAssign.value = false;
+    window.location.reload();
+  } catch (err) {
+    console.error('Assign campaign failed', err);
+  } finally {
+    assignLoading.value = false;
+  }
 };
 </script>
 

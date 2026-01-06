@@ -68,7 +68,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
-import { updateProfile, updateAvatar } from '@/api/user.api';
+import { getMe, updateProfile, updateAvatar } from '@/api/user.api';
 import defaultAvatar from '@/assets/image/avatar.png';
 
 const authStore = useAuthStore();
@@ -76,7 +76,19 @@ const authStore = useAuthStore();
 const fileInput = ref(null);
 const user = computed(() => authStore.userInfo || authStore.user || {});
 const displayName = computed(() => user.value?.fullName || user.value?.name || user.value?.email || 'Người dùng');
-const avatarUrl = computed(() => user.value?.avatarUrl || user.value?.avatarPath || user.value?.avatarPaths?.originalPath || defaultAvatar);
+const avatarUrl = computed(() => {
+  const u = user.value || {};
+  const paths = u.avatarPaths || u.avatarPath || {};
+  return (
+    paths.original ||
+    paths.thumbnail ||
+    paths.originalPath ||
+    paths.thumbnailPath ||
+    u.avatarUrl ||
+    u.avatarPath ||
+    defaultAvatar
+  );
+});
 const initials = computed(() => (user.value?.fullName || user.value?.name || user.value?.email || 'U').charAt(0).toUpperCase());
 const avatarStyle = computed(() => (avatarUrl.value ? { backgroundImage: `url(${avatarUrl.value})` } : {}));
 const joinDateText = computed(() => {
@@ -96,19 +108,49 @@ const form = reactive({
 });
 
 const loading = ref(false);
+const fetching = ref(false);
 const error = ref('');
 const success = ref('');
 
-const populateForm = () => {
-  form.fullName = user.value?.fullName || user.value?.name || '';
-  form.email = user.value?.email || '';
-  form.phone = user.value?.phone || '';
-  form.address = user.value?.address || '';
-  form.bio = user.value?.bio || '';
+const populateForm = (data = user.value) => {
+  form.fullName = data?.fullName || data?.name || '';
+  form.email = data?.email || '';
+  form.phone = data?.phone || '';
+  form.address = data?.address || '';
+  form.bio = data?.bio || '';
+};
+
+const syncAuthUser = data => {
+  if (!data) return;
+  authStore.setAuth({
+    token: authStore.token,
+    role: authStore.role,
+    user: {
+      ...user.value,
+      ...data,
+      fullName: data.fullName || data.name || user.value?.fullName,
+      name: data.fullName || data.name || user.value?.name
+    }
+  });
+};
+
+const fetchProfile = async () => {
+  fetching.value = true;
+  try {
+    const res = await getMe();
+    const data = res?.data || res?.result || res;
+    syncAuthUser(data);
+    populateForm(data);
+  } catch (err) {
+    error.value = err?.message || 'Không tải được thông tin hồ sơ';
+  } finally {
+    fetching.value = false;
+  }
 };
 
 onMounted(() => {
   populateForm();
+  fetchProfile();
 });
 
 const phonePattern = /^(?:\+84|0)[35789][0-9]{8}$/;
@@ -131,18 +173,12 @@ const submit = async () => {
       address: form.address,
       bio: form.bio
     });
-    // After real update, refresh local state to keep UI in sync.
-    authStore.setAuth({
-      token: authStore.token,
-      role: authStore.role,
-      user: {
-        ...user.value,
-        fullName: form.fullName,
-        name: form.fullName,
-        phone: form.phone,
-        address: form.address,
-        bio: form.bio
-      }
+    syncAuthUser({
+      fullName: form.fullName,
+      name: form.fullName,
+      phone: form.phone,
+      address: form.address,
+      bio: form.bio
     });
     success.value = 'Đã cập nhật hồ sơ';
   } catch (err) {

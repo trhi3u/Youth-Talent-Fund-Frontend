@@ -177,11 +177,11 @@ onMounted(fetchDetail);
 const buildPayload = () => {
   // Lấy mã người dùng hiện tại (admin hoặc staff)
   let assigneeCode = '';
-  if (auth.role === 'ADMIN') {
-    assigneeCode = auth.userInfo?.adminCode || auth.userInfo?.code || '';
-  } else if (auth.role === 'STAFF') {
-    assigneeCode = auth.userInfo?.staffCode || auth.userInfo?.code || '';
-  }
+  // if (auth.role === 'ADMIN') {
+  //   assigneeCode = auth.userInfo?.adminCode || auth.userInfo?.code || '';
+  // } else if (auth.role === 'STAFF') {
+  //   assigneeCode = auth.userInfo?.staffCode || auth.userInfo?.code || '';
+  // }
   const data = {
     title: form.title,
     description: form.description,

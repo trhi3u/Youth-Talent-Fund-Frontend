@@ -66,7 +66,6 @@
 
 <script setup>
 const successMessage = ref('');
-// Format input value to 1.000.000 style and parse back to number
 function onTargetAmountInput(e) {
   let val = e.target.value.replace(/\./g, '');
   val = val.replace(/[^0-9]/g, '');

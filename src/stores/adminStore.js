@@ -9,7 +9,15 @@ export const useAdminStore = defineStore('ADMIN', {
   }),
   actions: {
     async fetchStaff() {
-      this.staff = await getStaffs();
+      const res = await getStaffs();
+      const list = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.content)
+            ? res.content
+            : [];
+      this.staff = list;
       return this.staff;
     },
     async addStaff(payload) {

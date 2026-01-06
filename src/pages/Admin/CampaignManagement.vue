@@ -78,8 +78,10 @@
 
     <AssignCampaignToStaff
       v-if="showAssignModal"
-      :selected-campaign="assignCampaign"
-      @close="showAssignModal = false"
+      :visible="showAssignModal"
+      :campaign="assignCampaign"
+      @close="closeAssignModal"
+      @assign="handleAssign"
     />
   </section>
 </template>
@@ -91,13 +93,52 @@ import CampaignCardFull from '@/components/campaign/CampaignCardFull.vue';
 import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
 import { getCategoryOptions } from '@/utils/category';
 import { getCampaigns } from '@/api/public.api';
+import { getCampaignDetail } from '@/api/public.api';
+import { updateCampaign } from '@/api/management.api';
+import { toUtcString } from '@/utils/date';
 
 const showAssignModal = ref(false);
 const assignCampaign = ref(null);
-function openAssignModal(campaign) {
+const openAssignModal = campaign => {
   assignCampaign.value = campaign;
   showAssignModal.value = true;
-}
+};
+const closeAssignModal = () => {
+  showAssignModal.value = false;
+  assignCampaign.value = null;
+};
+const assignLoading = ref(false);
+
+const handleAssign = async ({ staffId, campaignId }) => {
+  if (assignLoading.value || !staffId) return;
+  const code = campaignId || assignCampaign.value?.campaignCode || assignCampaign.value?.code || assignCampaign.value?.campaignId || assignCampaign.value?.id;
+  if (!code) return;
+  assignLoading.value = true;
+  try {
+    const detail = await getCampaignDetail(code);
+    const data = {
+      title: detail.title || detail.name || 'Chiến dịch',
+      description: detail.description || detail.story || '',
+      location: detail.location || null,
+      story: detail.story || detail.description || null,
+      targetAmount: detail.targetAmount?.toString() || detail.goal?.toString() || '',
+      startDate: detail.startDate ? toUtcString(detail.startDate) : null,
+      endDate: detail.endDate ? toUtcString(detail.endDate) : null,
+      category: detail.category || detail.categoryName || detail.topic || '',
+      assigneeCode: staffId
+    };
+    const fd = new FormData();
+    fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    await updateCampaign(code, fd);
+    await fetchCampaigns();
+    closeAssignModal();
+    window.location.reload();
+  } catch (err) {
+    console.error('Assign campaign failed', err);
+  } finally {
+    assignLoading.value = false;
+  }
+};
 
 const campaigns = ref([]);
 const page = ref(0);

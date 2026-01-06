@@ -29,7 +29,7 @@
 
       <div class="actions" v-if="!loading">
         <button class="btn primary" @click="goDetail">Chi tiết</button>
-        <button class="btn ghost" :disabled="isCompleted" @click="goDonate">{{ isCompleted ? 'Hoàn thành' : 'Ủng hộ' }}</button>
+        <button class="btn ghost" :disabled="isCompleted || isOnHold || isPending" @click="goDonate">{{ donateLabel }}</button>
       </div>
 
       <slot name="actions" v-if="!loading" />
@@ -109,6 +109,17 @@ const isCompleted = computed(() => {
   return daysRemaining !== null && daysRemaining <= 0;
 });
 
+const isOnHold = computed(() => normalized.value.status?.toUpperCase() === 'ON_HOLD');
+
+const isPending = computed(() => normalized.value.status?.toUpperCase() === 'PENDING');
+
+const donateLabel = computed(() => {
+  if (isPending.value) return 'Chưa bắt đầu';
+  if (isOnHold.value) return 'Tạm dừng';
+  if (isCompleted.value) return 'Hoàn thành';
+  return 'Ủng hộ';
+});
+
 const endDateText = computed(() => {
   if (!normalized.value.endDate) return 'Đang cập nhật';
   return new Date(normalized.value.endDate).toLocaleDateString('vi-VN');
@@ -166,16 +177,31 @@ const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
   padding: 16px;
   display: grid;
   gap: 8px;
+  align-content: start;
 }
 
 .title {
   font-size: 18px;
+  line-height: 1.35;
   color: var(--primary-strong);
+  text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(1.35em * 2);
 }
 
 .desc {
   color: #35516d;
   font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(1.5em * 3);
 }
 
 .meta {

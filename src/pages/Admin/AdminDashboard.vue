@@ -68,6 +68,7 @@
               :key="item.code || item.id"
               :campaign="item"
               :hideCover="true"
+              @assign="handleAssignOpen"
             />
           </div>
         </div>
@@ -106,14 +107,29 @@
         </div>
       </div>
     </div>
+
+    <AssignCampaignToStaff
+      v-if="showAssignModal"
+      :visible="showAssignModal"
+      :campaign="selectedCampaign"
+      @close="handleAssignClose"
+      @assign="handleAssign"
+    />
   </section>
 </template>
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useAdminStore } from '@/stores/adminStore';
 import CampaignCardDashboard from '@/components/campaign/CampaignCardDashboard.vue';
+import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
+import { getCampaignDetail } from '@/api/public.api';
+import { updateCampaign } from '@/api/management.api';
+import { toUtcString } from '@/utils/date';
 const adminStore = useAdminStore();
 const loading = ref(false);
+const showAssignModal = ref(false);
+const selectedCampaign = ref(null);
+const assignLoading = ref(false);
 
 const mapStatus = status => {
   if (['COMPLETED', 'DONE', 'FINISHED', 'CLOSED'].includes(status)) return 'Hoàn thành';
@@ -200,6 +216,47 @@ const completedPercent = computed(() =>
 
 const recentCampaigns = computed(() => campaigns.value.slice(0, 4));
 
+const handleAssignOpen = campaign => {
+  selectedCampaign.value = campaign;
+  showAssignModal.value = true;
+};
+
+const handleAssignClose = () => {
+  showAssignModal.value = false;
+  selectedCampaign.value = null;
+};
+
+const handleAssign = async ({ staffId, campaignId }) => {
+  if (assignLoading.value || !staffId) return;
+  const code = campaignId || selectedCampaign.value?.campaignCode || selectedCampaign.value?.code || selectedCampaign.value?.id;
+  if (!code) return;
+  assignLoading.value = true;
+  try {
+    const detail = await getCampaignDetail(code);
+    const data = {
+      title: detail.title || detail.name || 'Chiến dịch',
+      description: detail.description || detail.story || '',
+      location: detail.location || null,
+      story: detail.story || detail.description || null,
+      targetAmount: detail.targetAmount?.toString() || detail.goal?.toString() || '',
+      startDate: detail.startDate ? toUtcString(detail.startDate) : null,
+      endDate: detail.endDate ? toUtcString(detail.endDate) : null,
+      category: detail.category || detail.categoryName || detail.topic || '',
+      assigneeCode: staffId
+    };
+    const fd = new FormData();
+    fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    await updateCampaign(code, fd);
+    await adminStore.fetchCampaigns();
+    handleAssignClose();
+    window.location.reload();
+  } catch (err) {
+    console.error('Assign campaign failed', err);
+  } finally {
+    assignLoading.value = false;
+  }
+};
+
 const fetchData = async () => {
   loading.value = true;
   try {
@@ -213,6 +270,7 @@ const fetchData = async () => {
 
 onMounted(fetchData);
 </script>
+
 
 <style scoped lang="scss">
 .page {

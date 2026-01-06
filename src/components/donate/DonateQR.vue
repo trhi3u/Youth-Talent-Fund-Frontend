@@ -4,12 +4,33 @@
       <button class="close-btn" @click="handleClose" aria-label="Đóng">×</button>
       <div class="modal-title">Thanh toán</div>
       <div class="donate-qr-card">
-        <div class="info info-inline">
-          <div class="row"><span class="label">Ngân hàng:</span><span class="value">{{ bankName }}</span></div>
-          <div class="row"><span class="label">Số tài khoản:</span><span class="value highlight">{{ accountNumber }}</span></div>
-          <div class="row"><span class="label">Chủ tài khoản:</span><span class="value highlight">{{ accountName }}</span></div>
-          <div class="row"><span class="label">Số tiền:</span><span class="value highlight">{{ formatCurrency(amount) }} VND</span></div>
-          <div class="row"><span class="label">Nội dung chuyển khoản:</span><span class="value highlight">{{ message }}</span></div>
+        <div class="info info-qr">
+          <div class="row">
+            <span class="label">Ngân hàng</span>
+            <span class="colon">:</span>
+            <span class="value">{{ bankName }}</span>
+          </div>
+          <div class="row">
+            <span class="label">Số tài khoản</span>
+            <span class="colon">:</span>
+            <span class="value">{{ accountNumber }}</span>
+          </div>
+          <div class="row">
+            <span class="label">Chủ tài khoản</span>
+            <span class="colon">:</span>
+            <span class="value">{{ accountName }}</span>
+          </div>
+          <div class="row">
+            <span class="label">Số tiền</span>
+            <span class="colon">:</span>
+            <span class="value highlight">{{ formatCurrency(amount) }} VND</span>
+          </div>
+          <div class="row row-message">
+            <span class="label">Nội dung</span>
+            <span class="colon">:</span>
+            <span class="value highlight message-value">{{ message }}</span>
+          </div>
+      
         </div>
         <div class="qr-box">
           <img v-if="qrImage" :src="qrImage" alt="QR Code" />
@@ -135,42 +156,63 @@ function formatCurrency(val) {
   margin: 0 auto;
   flex-wrap: wrap;
 }
-// ...existing code...
+
+.row-message {
+  align-items: flex-start !important;
+}
+.message-value {
+  word-break: break-word;
+  white-space: pre-line;
+  max-width: 220px;
+  display: inline-block;
+  vertical-align: top;
+}
+
 .info {
   flex: 1 1 180px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.info-inline {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: flex-start;
+.info-qr {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.info-inline .row {
+.info-qr .row {
   display: flex;
   align-items: center;
-  gap: 6px;
   font-size: 15px;
-  background: #f7fbfd;
-  border-radius: 8px;
-  padding: 6px 10px;
-  margin-bottom: 0;
-  margin-right: 8px;
-  margin-top: 0;
-  border: 1px solid #e0f7f4;
+  gap: 0;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
 }
-.info-inline .label {
-  min-width: unset;
+.info-qr .label {
+  min-width: 130px;
   color: #0b6c7f;
   font-weight: 700;
+  text-align: left;
+  display: inline-block;
 }
-.info-inline .value {
+.info-qr .colon {
+  width: 18px;
+  text-align: center;
+  color: #888;
+  font-weight: 700;
+  display: inline-block;
+}
+.info-qr .value {
   color: #123047;
   font-weight: 600;
+  word-break: break-all;
+  text-align: left;
+  display: inline-block;
 }
-.info-inline .highlight {
+.info-qr .highlight {
   color: #e53935;
   font-weight: 800;
 }
@@ -216,7 +258,7 @@ function formatCurrency(val) {
   margin-top: 6px;
 }
 .qr-brand img {
-  height: 40px;
+  height: 30px;
   width: auto;
   max-width: 90px;
   object-fit: contain;

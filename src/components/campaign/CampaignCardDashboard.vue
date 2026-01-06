@@ -20,9 +20,21 @@
       <footer class="actions">
         <button class="btn ghost" @click="goDetail">Chi tiết</button>
         <button class="btn" :disabled="isEditDisabled" @click="goEdit">Chỉnh sửa</button>
-        <button class="btn ghost" @click="$emit('pause', normalized)">Tạm dừng</button>
-        <button class="btn ghost" @click="$emit('finish', normalized)">Kết thúc</button>
-        <button class="btn" @click="goAssign">Phân công</button>
+        <button
+          class="btn ghost"
+          :disabled="isStatusDisabled"
+          @click="handleStatusChange(statusActions.primary.target)"
+        >
+          {{ statusActions.primary.label }}
+        </button>
+        <button
+          class="btn ghost"
+          :disabled="isStatusDisabled"
+          @click="handleStatusChange(statusActions.secondary.target)"
+        >
+          {{ statusActions.secondary.label }}
+        </button>
+        <button class="btn" :disabled="isActionDisabled" @click="goAssign">Phân công</button>
         <button class="btn ghost" @click="goAnalytics">Thống kê</button>
       </footer>
     </div>
@@ -35,6 +47,7 @@ import { useRouter } from 'vue-router';
 import fallbackImage from '@/assets/image/background.png';
 import { getCategoryLabel } from '@/utils/category';
 import { getCampaignDetail } from '@/api/public.api';
+import { updateCampaignStatus } from '@/api/management.api';
 
 const props = defineProps({
   campaign: { type: Object, default: () => ({}) },
@@ -50,7 +63,7 @@ const normalized = computed(() => {
     ...data,
     title: data.title || data.name || 'Chiến dịch',
     description: data.description || data.story || '',
-    status: (data.status || 'IN_PROGRESS'),
+    status: (data.status || 'UNKNOWN'),
     category: data.category || data.categoryName || data.topic || '',
     campaignCode: data.campaignCode || data.code || data.id,
     targetAmount,
@@ -62,6 +75,8 @@ const normalized = computed(() => {
     staffName: data.staffName || data.staffname || data.assignee || ''
   };
 });
+
+const statusUpper = computed(() => normalized.value.status?.toUpperCase() || '');
 
 const categoryLabel = computed(() => getCategoryLabel(normalized.value.category));
 
@@ -114,11 +129,11 @@ const statusMap = {
 };
 
 const statusLabel = computed(() => {
-  const s = normalized.value.status?.toUpperCase();
+  const s = statusUpper.value;
   return statusMap[s]?.label || s || '';
 });
 const statusClass = computed(() => {
-  const s = normalized.value.status?.toUpperCase();
+  const s = statusUpper.value;
   const color = statusMap[s]?.color;
   return color ? { 'status-chip': true, [`status-${s}`]: true } : '';
 });
@@ -156,10 +171,52 @@ const goDetail = () => {
   router.push(`/admin/campaigns/${code}`);
 };
 
-const isEditDisabled = computed(() => {
-  const s = normalized.value.status?.toUpperCase();
+const isEditDisabled = computed(() => statusUpper.value === 'COMPLETED' || statusUpper.value === 'CANCELLED');
+
+const isActionDisabled = computed(() => {
+  const s = statusUpper.value;
   return s === 'COMPLETED' || s === 'CANCELLED';
 });
+
+const statusActions = computed(() => {
+  const s = statusUpper.value;
+  if (s === 'PENDING') {
+    return {
+      primary: { label: 'Bắt đầu', target: 'IN_PROGRESS' },
+      secondary: { label: 'Hủy bỏ', target: 'CANCELLED' }
+    };
+  }
+  if (s === 'ON_HOLD') {
+    return {
+      primary: { label: 'Tiếp tục', target: 'IN_PROGRESS' },
+      secondary: { label: 'Kết thúc', target: 'COMPLETED' }
+    };
+  }
+  return {
+    primary: { label: 'Tạm dừng', target: 'ON_HOLD' },
+    secondary: { label: 'Kết thúc', target: 'COMPLETED' }
+  };
+});
+
+const isStatusLoading = ref(false);
+const isStatusDisabled = computed(() => isActionDisabled.value || isStatusLoading.value);
+
+const emit = defineEmits(['status-updated', 'assign']);
+
+const handleStatusChange = async target => {
+  if (!target || isStatusDisabled.value) return;
+  const code = normalized.value.campaignCode;
+  if (!code) return;
+  isStatusLoading.value = true;
+  try {
+    await updateCampaignStatus(code, { campaignStatus: target });
+    emit('status-updated', { code, status: target });
+  } catch (err) {
+    console.error('Update campaign status failed', err);
+  } finally {
+    isStatusLoading.value = false;
+  }
+};
 const goEdit = () => {
   const code = normalized.value.campaignCode;
   if (!code || isEditDisabled.value) return;
@@ -173,9 +230,7 @@ const goAnalytics = () => {
 };
 
 const goAssign = () => {
-  const code = normalized.value.campaignCode;
-  if (!code) return;
-  router.push({ path: '/admin/assign', query: { campaign: code } });
+  emit('assign', normalized.value);
 };
 
 const formatCurrency = value => (value || 0).toLocaleString('vi-VN');
