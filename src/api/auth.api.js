@@ -12,3 +12,5 @@ export const verifyResetToken = token =>
 export const resetPassword = payload => http.post('/auth/reset-password', payload);
 
 export const getDonationHistory = payload => http.post('/auth/donation/history', payload);
+
+export const getUserDonationStatistic = payload => http.post('/auth/donation/statistic/user', payload);

@@ -151,7 +151,73 @@
               <p v-else class="muted">Chưa có nội dung câu chuyện.</p>
             </div>
             <div v-else-if="activeTab === 'update'">
-              <p class="muted">Chưa có cập nhật</p>
+              <div v-if="historyLoading" class="history-loading">Đang tải cập nhật...</div>
+              <div v-else-if="history.length" class="history-list">
+                <div v-for="item in history" :key="item.id" class="history-card">
+                  <div class="history-head">
+                    <div class="history-title">{{ item.title }}</div>
+                    <div class="history-tags">
+                      <span class="history-type" :class="'type-' + (item.type || '').toLowerCase()">{{ typeLabel(item.type) }}</span>
+                      <span v-if="item.transactionAmount" class="history-amount-tag">{{ formatCurrency(item.transactionAmount) }}đ</span>
+                    </div>
+                  </div>
+                  <div class="history-meta">
+                    <span>{{ formatDate(item.time) }}</span>
+                  </div>
+                  <div class="history-content">{{ item.content }}</div>
+                  <div v-if="item.files && item.files.length" class="history-files">
+                    <span>File:</span>
+                    <a
+                      v-for="(file, idx) in item.files"
+                      :key="idx"
+                      href="#"
+                      class="history-file"
+                      @click.prevent="downloadHistoryFile(file)"
+                    >{{ file.name }}</a>
+                  </div>
+                </div>
+                <div class="history-pagination" v-if="historyTotalPages > 1">
+                  <button
+                    v-for="n in paginationPages"
+                    :key="n"
+                    :class="['page-btn', { active: n === historyPage } ]"
+                    @click="typeof n === 'number' && fetchHistory(n)"
+                    :disabled="n === '...'"
+                  >
+                    {{ n }}
+                  </button>
+                </div>
+              </div>
+              <p v-else class="muted">Chưa có cập nhật</p>
+            </div>
+            <div v-else-if="activeTab === 'donation'">
+              <div v-if="donationLoading" class="donation-loading">Đang tải danh sách ủng hộ...</div>
+              <div v-else-if="donations.length" class="donation-table">
+                <div class="donation-head">
+                  <span>Người ủng hộ</span>
+                  <span>Số tiền ủng hộ</span>
+                  <span>Thời gian ủng hộ</span>
+                </div>
+                <div class="donation-body">
+                  <div v-for="(donation, idx) in donations" :key="idx" class="donation-row">
+                    <span class="donation-col donor-name">{{ donation.donorName || 'Người ủng hộ ẩn danh' }}</span>
+                    <span class="donation-col donation-amount">{{ formatCurrency(donation.amount) }}đ</span>
+                    <span class="donation-col donation-time">{{ formatDateTime(donation.time) }}</span>
+                  </div>
+                </div>
+                <div class="donation-pagination" v-if="donationTotalPages > 1">
+                  <button
+                    v-for="p in donationPages"
+                    :key="p"
+                    :class="['page-btn', { active: p === donationPage } ]"
+                    @click="typeof p === 'number' && fetchDonations(p)"
+                    :disabled="p === '...'"
+                  >
+                    {{ p }}
+                  </button>
+                </div>
+              </div>
+              <p v-else class="muted">Chưa có lượt ủng hộ.</p>
             </div>
             <div v-else>
               <div class="placeholder-box">(Chuyển sang chế độ quyên góp để hiển thị form)</div>
@@ -198,7 +264,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createDonation, getCampaignDetail } from '@/api/public.api';
+import { createDonation, downloadAttachment, getCampaignDetail, getProofReports, getDonationList } from '@/api/public.api';
 import fallbackImage from '@/assets/image/background.png';
 import { useAuthStore } from '@/stores/authStore';
 import DonateQR from '@/components/donate/DonateQR.vue';
@@ -225,6 +291,15 @@ const qrCode = ref('');
 const checkoutUrl = ref('');
 const isSubmitting = ref(false);
 const formErrors = ref({});
+const history = ref([]);
+const historyLoading = ref(false);
+const historyPage = ref(1);
+const historyPerPage = 4;
+const historyTotalPages = ref(1);
+const donations = ref([]);
+const donationLoading = ref(false);
+const donationPage = ref(1);
+const donationTotalPages = ref(1);
 
 const campaignCode = computed(() => route.params.campaignCode || route.params.id || route.params.code);
 const isDonationMode = computed(() => route.query.mode === 'donation');
@@ -237,7 +312,33 @@ const progress = computed(() => {
   const target = Number(campaign.value.targetAmount || 0);
   const current = Number(campaign.value.currentAmount || 0);
   if (!target) return 0;
-  return Math.min(100, Math.round((current / target) * 100));
+  const pct = Math.round((current / target) * 100);
+  if (pct === 0 && current > 0) return 1; // ensure tiny progress still shows
+  return Math.min(100, pct);
+});
+
+const paginationPages = computed(() => {
+  const total = historyTotalPages.value;
+  const current = historyPage.value;
+  if (total <= 4) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 3) {
+    return [1, 2, 3, 4, '...', total];
+  }
+  if (current >= total - 2) {
+    return [1, '...', total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+});
+
+const donationPages = computed(() => {
+  const total = donationTotalPages.value;
+  const current = donationPage.value;
+  if (total <= 4) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 3) return [1, 2, 3, 4, '...', total];
+  if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
+  return [1, '...', current - 1, current, current + 1, '...', total];
 });
 
 const statusUpper = computed(() => (campaign.value.status || '').toUpperCase());
@@ -261,6 +362,12 @@ const donateLabel = computed(() => {
 });
 
 const formatCurrency = value => (Number(value) || 0).toLocaleString('vi-VN');
+const formatDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '---';
+const formatDateTime = d => {
+  if (!d) return '---';
+  const dateObj = new Date(d);
+  return `${dateObj.toLocaleDateString('vi-VN')} ${dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+};
 
 const normalizeCampaign = data => {
   if (!data) return {};
@@ -283,6 +390,86 @@ const fetchDetail = async code => {
     // Có thể log lỗi nếu cần
   } finally {
     loading.value = false;
+  }
+};
+
+const typeLabel = t => t === 'PROGRESS' ? 'Tiến độ' : t === 'EXPENSE' ? 'Chi tiêu' : t === 'CONTRIBUTION' ? 'Đóng góp' : t;
+
+const mapHistoryItem = item => {
+  const attachments = item.attachments || item.files || [];
+  return {
+    id: item.id || item.reportId || item.code || item.campaignReportId || Math.random().toString(36).slice(2),
+    title: item.title || item.name || 'Báo cáo',
+    time: item.time || item.createdAt || item.createdDate || item.created || item.updatedAt || null,
+    type: item.type || item.reportType || item.proofReportType || '',
+    creator: item.creator || item.createdBy || item.creatorName || item.staffName || '---',
+    transactionAmount: item.transactionAmount ?? item.amount ?? item.money ?? null,
+    content: item.content || item.description || item.note || '',
+    files: attachments.map(f => ({
+      id: f.id || f.attachmentId || f.fileId,
+      name: f.name || f.fileName || f.originalName || 'file',
+      url: f.url || f.link || f.path || f.downloadUrl || (f.id || f.attachmentId ? `/public/attachments/${f.id || f.attachmentId}/download` : '#')
+    }))
+  };
+};
+
+const fetchHistory = async (page = 1, codeParam) => {
+  const code = codeParam || campaignCode.value;
+  if (!code) return;
+  historyLoading.value = true;
+  try {
+    const res = await getProofReports(code, { page: page - 1, size: historyPerPage });
+    const content = res?.content || res?.data || res?.items || [];
+    history.value = content.map(mapHistoryItem);
+    historyTotalPages.value = res?.totalPages || 1;
+    historyPage.value = page;
+  } catch (err) {
+    history.value = [];
+    historyTotalPages.value = 1;
+  } finally {
+    historyLoading.value = false;
+  }
+};
+
+const fetchDonations = async (page = 1, codeParam) => {
+  const code = codeParam || campaignCode.value;
+  if (!code) return;
+  donationLoading.value = true;
+  try {
+    const res = await getDonationList({ campaignCode: code, page: page - 1 });
+    const content = res?.content || res?.data || res?.items || [];
+    donations.value = content.map(item => ({
+      amount: item.amount || 0,
+      donorName: item.donorName || 'Ẩn danh',
+      time: item.time || item.createdAt || item.createdDate || item.created || null
+    }));
+    donationTotalPages.value = res?.totalPages || 1;
+    donationPage.value = page;
+  } catch (err) {
+    donations.value = [];
+    donationTotalPages.value = 1;
+  } finally {
+    donationLoading.value = false;
+  }
+};
+
+const downloadHistoryFile = async file => {
+  try {
+    if (file?.id) {
+      const res = await downloadAttachment(file.id);
+      const url = res?.url || (typeof res === 'string' ? res : null);
+      if (url) {
+        window.open(url, '_blank');
+        return;
+      }
+    }
+    if (file?.url) {
+      window.open(file.url, '_blank');
+      return;
+    }
+    alert('Không tải được file');
+  } catch (err) {
+    alert('Không tải được file');
   }
 };
 
@@ -392,12 +579,18 @@ const backToCampaign = () => {
 onMounted(() => {
   syncTabFromQuery();
   fetchDetail(campaignCode.value);
+  fetchHistory(1, campaignCode.value);
   prefillFromAuth();
 });
 
 watch(
   () => route.params.campaignCode || route.params.id,
-  newCode => fetchDetail(newCode)
+  newCode => {
+    fetchDetail(newCode);
+    fetchHistory(1, newCode);
+    donations.value = [];
+    donationTotalPages.value = 1;
+  }
 );
 watch(
   () => route.query.mode,
@@ -407,17 +600,27 @@ watch(
   () => route.query.donate,
   () => syncTabFromQuery()
 );
+
+watch(
+  () => activeTab.value,
+  tab => {
+    if (tab === 'donation') fetchDonations(1);
+  }
+);
 </script>
 
 <style scoped lang="scss">
 .page {
-  padding: 32px;
+  padding: 32px 40px;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
 }
 
 .donation-layout {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 18px;
+  grid-template-columns: 1.5fr 0.95fr;
+  gap: 16px;
   align-items: start;
 }
 
@@ -498,6 +701,9 @@ watch(
 .donate-panel {
   display: grid;
   gap: 12px;
+  max-width: 440px;
+  width: 100%;
+  justify-self: end;
 }
 
 .panel-head h3 {
@@ -740,6 +946,197 @@ h1 {
   padding: 10px 2px 2px;
   color: #35516d;
   line-height: 1.6;
+}
+
+.history-loading {
+  padding: 12px;
+  color: #35516d;
+  background: #f7fbfd;
+  border-radius: 12px;
+  border: 1px dashed rgba(12, 100, 120, 0.18);
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-card {
+  border: 1px solid rgba(12, 100, 120, 0.12);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+  display: grid;
+  gap: 6px;
+}
+
+.history-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.history-tags {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.history-title {
+  font-weight: 700;
+  color: #0c6478;
+  font-size: 16px;
+}
+
+.history-type {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 12px;
+  background: rgba(12, 100, 120, 0.08);
+  color: #0c6478;
+  text-transform: capitalize;
+}
+
+.history-amount-tag {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 12px;
+  background: rgba(9, 209, 199, 0.14);
+  color: #0b6c7f;
+}
+
+.history-type.type-progress { background: rgba(9, 209, 199, 0.12); color: #0b7e7b; }
+.history-type.type-expense { background: rgba(255, 193, 7, 0.15); color: #b36b00; }
+.history-type.type-contribution { background: rgba(76, 175, 80, 0.16); color: #1b7f2a; }
+
+.history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: #6b7a8d;
+  font-size: 13px;
+}
+
+.history-content {
+  color: #35516d;
+}
+
+.history-amount {
+  font-weight: 700;
+  color: #0b6c7f;
+}
+
+.history-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: #35516d;
+}
+
+.history-file {
+  color: #0c6478;
+  text-decoration: underline;
+}
+
+.history-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  justify-content: center;
+}
+
+.page-btn {
+  border: 1px solid rgba(12, 100, 120, 0.16);
+  background: #f7fbfd;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #0c6478;
+}
+
+.page-btn.active {
+  background: linear-gradient(90deg, #09d1c7 0%, #46dfb1 100%);
+  color: #fff;
+  border-color: rgba(9, 209, 199, 0.25);
+}
+
+.donation-loading {
+  padding: 12px;
+  color: #35516d;
+  background: #f7fbfd;
+  border-radius: 12px;
+  border: 1px dashed rgba(12, 100, 120, 0.18);
+}
+
+.donation-table {
+  border: 1px solid rgba(12, 100, 120, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+.donation-head, .donation-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1.2fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.donation-head {
+  padding: 12px;
+  background: #f7fbfd;
+  font-weight: 700;
+  color: #0c6478;
+  border-bottom: 1px solid rgba(12, 100, 120, 0.12);
+}
+
+.donation-body {
+  display: grid;
+}
+
+.donation-row {
+  padding: 12px;
+  border-bottom: 1px solid rgba(12, 100, 120, 0.08);
+}
+
+.donation-row:last-child {
+  border-bottom: none;
+}
+
+.donation-col {
+  color: #35516d;
+}
+
+.donor-name {
+  font-weight: 700;
+  color: #0c6478;
+}
+
+.donation-amount {
+  font-weight: 700;
+  color: #0b6c7f;
+}
+
+.donation-time {
+  color: #6b7a8d;
+  font-size: 13px;
+}
+
+.donation-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px auto 0;
+  justify-content: center;
+  padding: 0 12px 12px;
 }
 
 .muted {

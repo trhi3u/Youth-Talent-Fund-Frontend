@@ -64,6 +64,7 @@
 import { computed, ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
+import { getUserDonationStatistic } from '@/api/auth.api';
 
 const authStore = useAuthStore();
 const userStore = useUserStore();
@@ -73,8 +74,13 @@ const donations = computed(() => userStore.donations || []);
 const page = computed(() => userStore.donationPage || { totalPages: 0, totalElements: 0 });
 const pageNumber = ref(0);
 const error = computed(() => userStore.donationError);
-const totalAmount = computed(() => donations.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+const statTotal = ref({ totalDonated: 0, campaignCount: 0 });
+const totalAmount = computed(() => {
+  if (statTotal.value.totalDonated) return statTotal.value.totalDonated;
+  return donations.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+});
 const campaignCount = computed(() => {
+  if (statTotal.value.campaignCount) return statTotal.value.campaignCount;
   const set = new Set();
   donations.value.forEach(item => {
     const key = item.campaignId || item.campaignName || item.campaignCode;
@@ -113,6 +119,23 @@ const fetchDonations = async () => {
   }
 };
 
+const fetchStats = async () => {
+  const userCode = authStore.userInfo?.code || authStore.user?.code || '';
+  if (!userCode) return;
+  try {
+    const res = await getUserDonationStatistic({ userCode, pageNumber: 0 });
+    const first = res?.content?.[0];
+    if (first) {
+      statTotal.value = {
+        totalDonated: Number(first.totalDonated) || 0,
+        campaignCount: Number(first.campaignCount) || 0
+      };
+    }
+  } catch (err) {
+    // ignore, fallback to computed sums
+  }
+};
+
 const changePage = newPage => {
   pageNumber.value = newPage;
   fetchDonations();
@@ -120,6 +143,7 @@ const changePage = newPage => {
 
 onMounted(() => {
   fetchDonations();
+  fetchStats();
 });
 </script>
 

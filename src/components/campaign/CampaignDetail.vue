@@ -84,7 +84,7 @@
             <div class="history-content"> Nội dung: {{ item.content }}</div>
             <div v-if="item.files && item.files.length" class="history-files">
               <span v-for="(f, idx) in item.files" :key="idx" class="history-file">
-                <a :href="f.url" target="_blank">{{ f.name }}</a>
+                <a href="#" @click.prevent="downloadHistoryFile(f)">{{ f.name }}</a>
               </span>
             </div>
           </div>
@@ -93,7 +93,7 @@
               v-for="n in paginationPages"
               :key="n"
               :class="['page-btn', { active: n === historyPage } ]"
-              @click="typeof n === 'number' && (historyPage = n)"
+              @click="typeof n === 'number' && fetchHistory(n)"
               :disabled="n === '...'"
             >
               {{ n }}
@@ -193,7 +193,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getCategoryLabel } from '@/utils/category';
-import { getCampaignDetail } from '@/api/public.api';
+import { getCampaignDetail, getProofReports, downloadAttachment } from '@/api/public.api';
 import { createReport, updateCampaignStatus, updateCampaign } from '@/api/management.api';
 import { toUtcString } from '@/utils/date';
 import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
@@ -226,9 +226,29 @@ const onReportFiles = e => {
 
 const validateReport = () => {
   reportErrors.value = [];
-  if (!reportForm.value.title) reportErrors.value.push('Tiêu đề không được để trống');
-  if (!reportForm.value.type) reportErrors.value.push('Vui lòng chọn loại báo cáo');
-  if (!reportForm.value.content) reportErrors.value.push('Nội dung không được để trống');
+  const title = (reportForm.value.title || '').trim();
+  const content = (reportForm.value.content || '').trim();
+  const allowedMime = ['application/pdf', 'image/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+
+  if (!title || title.length < 10 || title.length > 50) {
+    reportErrors.value.push('Tiêu đề phải từ 10 đến 50 ký tự');
+  }
+  if (!reportForm.value.type) {
+    reportErrors.value.push('Vui lòng chọn loại báo cáo');
+  }
+  if (!content || content.length < 10 || content.length > 2000) {
+    reportErrors.value.push('Nội dung phải từ 10 đến 2000 ký tự');
+  }
+
+  if (reportFiles.value.length) {
+    const invalidFile = reportFiles.value.find(f => {
+      const mime = (f.type || '').toLowerCase();
+      const ext = (f.name || '').toLowerCase();
+      const matchExt = ext.match(/\.(pdf|jpg|jpeg|png)$/);
+      return !allowedMime.includes(mime) && !matchExt;
+    });
+    if (invalidFile) reportErrors.value.push('File chỉ PDF/JPG/PNG');
+  }
   return reportErrors.value.length === 0;
 };
 
@@ -236,19 +256,24 @@ const submitReport = async () => {
   if (!validateReport() || !campaignCodeValue.value) return;
   reportLoading.value = true;
   try {
-    const fd = new FormData();
-    fd.append('data', JSON.stringify({
+    const data = {
       title: reportForm.value.title,
       type: reportForm.value.type,
       content: reportForm.value.content,
-      transactionAmount: reportForm.value.transactionAmount || '',
-    }));
-    for (const f of reportFiles.value) fd.append('files', f);
+      transactionAmount: reportForm.value.transactionAmount || ''
+    };
+    const fd = new FormData();
+    fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    for (const f of reportFiles.value) {
+      fd.append('files', f);
+    }
+
     await createReport(campaignCodeValue.value, fd);
     reportSuccess.value = 'Tạo báo cáo thành công!';
     setTimeout(() => { reportSuccess.value = ''; }, 1500);
     reportForm.value = { title: '', type: '', content: '', transactionAmount: '' };
     reportFiles.value = [];
+    fetchHistory(1);
   } catch (err) {
     reportErrors.value = [err?.message || 'Gửi báo cáo thất bại'];
   } finally {
@@ -284,7 +309,10 @@ const fetchDetail = async () => {
   };
 };
 
-onMounted(fetchDetail);
+onMounted(() => {
+  fetchDetail();
+  fetchHistory();
+});
 
 const categoryLabel = computed(() => getCategoryLabel(campaign.value?.category));
 const statusUpper = computed(() => campaign.value?.status?.toUpperCase() || '');
@@ -367,14 +395,65 @@ const handleStatusChange = async target => {
     isStatusLoading.value = false;
   }
 };
+const downloadHistoryFile = async file => {
+  try {
+    if (file?.id) {
+      const res = await downloadAttachment(file.id);
+      const url = res?.url || (typeof res === 'string' ? res : null);
+      if (url) {
+        window.open(url, '_blank');
+        return;
+      }
+    }
+    if (file?.url) {
+      window.open(file.url, '_blank');
+      return;
+    }
+    alert('Không tải được file');
+  } catch (err) {
+    console.error('Download attachment failed', err);
+    alert('Không tải được file');
+  }
+};
 const history = ref([]);
 const historyPage = ref(1);
 const historyPerPage = 2;
-const historyTotalPages = computed(() => Math.ceil(history.value.length / historyPerPage));
-const pagedHistory = computed(() => {
-  const start = (historyPage.value - 1) * historyPerPage;
-  return history.value.slice(start, start + historyPerPage);
-});
+const historyTotalPages = ref(1);
+const pagedHistory = computed(() => history.value);
+
+const mapHistoryItem = item => {
+  const attachments = item.attachments || item.files || [];
+  return {
+    id: item.id || item.reportId || item.code || item.campaignReportId || Math.random().toString(36).slice(2),
+    time: item.time || item.createdAt || item.createdDate || item.created || item.updatedAt || null,
+    type: item.type || item.reportType || item.proofReportType || '',
+    creator: item.creator || item.createdBy || item.creatorName || item.staffName || '---',
+    transactionAmount: item.transactionAmount ?? item.amount ?? item.money ?? null,
+    content: item.content || item.description || item.note || '',
+    files: attachments.map(f => ({
+      id: f.id || f.attachmentId || f.fileId,
+      name: f.name || f.fileName || f.originalName || 'file',
+      url: f.url || f.link || f.path || f.downloadUrl || (f.id || f.attachmentId ? `/public/attachments/${f.id || f.attachmentId}/download` : '#')
+    }))
+  };
+};
+
+const fetchHistory = async page => {
+  const code = campaignCodeValue.value || effectiveCampaignCode.value;
+  if (!code) return;
+  const currentPage = page || 1;
+  try {
+    const res = await getProofReports(code, { page: currentPage - 1, size: historyPerPage });
+    const content = res?.content || res?.data || res?.items || [];
+    history.value = content.map(mapHistoryItem);
+    historyTotalPages.value = res?.totalPages || 1;
+    historyPage.value = currentPage;
+  } catch (err) {
+    console.error('Fetch proof reports failed', err);
+    history.value = [];
+    historyTotalPages.value = 1;
+  }
+};
 
 const paginationPages = computed(() => {
   const total = historyTotalPages.value;

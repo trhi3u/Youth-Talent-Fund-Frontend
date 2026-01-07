@@ -31,3 +31,6 @@ export const fetchTransactions = params => http.get('/management/transactions', 
 
 // Legacy list for staff (alias to getMyCampaigns for compatibility)
 export const listStaffCampaigns = params => getMyCampaigns(params);
+
+// Donation statistics for admin (filter by userCode, campaignCode)
+export const getUserDonationStatisticAdmin = payload => http.post('/management/statistic/donation/user', payload);

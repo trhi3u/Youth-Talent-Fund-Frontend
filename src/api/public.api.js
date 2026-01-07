@@ -9,6 +9,8 @@ export const getCampaignDetail = value =>
 
 export const createDonation = payload => http.post('/public/donation/create', payload);
 
+export const getDonationList = params => http.get('/public/donation/list', { params });
+
 export function getProofReports(campaignCode, params = {}) {
   return http.get(`/public/campaigns/${campaignCode}/proof-reports`, { params });
 }

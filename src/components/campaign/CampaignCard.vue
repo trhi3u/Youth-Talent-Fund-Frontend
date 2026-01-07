@@ -73,7 +73,9 @@ const progress = computed(() => {
   const goal = normalized.value.targetAmount;
   const raised = normalized.value.currentAmount;
   if (!goal) return 0;
-  return Math.min(100, Math.round((raised / goal) * 100));
+  const pct = Math.round((raised / goal) * 100);
+  if (pct === 0 && raised > 0) return 1;
+  return Math.min(100, pct);
 });
 
 const router = useRouter();
