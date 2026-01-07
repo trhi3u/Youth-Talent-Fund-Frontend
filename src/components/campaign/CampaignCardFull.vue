@@ -1,8 +1,6 @@
 <template>
   <article class="card-full" :class="{ loading }">
-    <div v-if="!hideCover" class="cover" :style="coverStyle">
-      <div class="tag" v-if="statusText">{{ statusText }}</div>
-    </div>
+    <div v-if="!hideCover" class="cover" :style="coverStyle"></div>
 
     <div class="body">
       <header class="heading">
@@ -19,7 +17,12 @@
       </div>
 
 
-      <p class="desc" v-else>{{ normalized.description || 'Không có mô tả' }}</p>
+      <div class="info-row" v-else>
+        <span class="chip">{{ startEndRange }}</span>
+        <span class="chip" v-if="normalized.category">Danh mục: {{ categoryLabel || normalized.category }}</span>
+        <span class="chip" v-if="staffDisplay">Phụ trách: {{ staffDisplay }}</span>
+        <span class="chip" :class="statusClass" v-if="statusLabel">Trạng thái: {{ statusLabel }}</span>
+      </div>
 
 
       <div class="metrics compact" v-if="role === 'ADMIN'">
@@ -31,17 +34,8 @@
         </div>
       </div>
 
-      <div class="metrics" v-else>
+      <div class="metrics compact" v-else>
         <div class="metric">
-          <p class="label">Mục tiêu</p>
-          <p class="value">{{ formatCurrency(normalized.targetAmount) }} VND</p>
-        </div>
-        <div class="metric">
-          <p class="label">Đã góp</p>
-          <p class="value">{{ formatCurrency(normalized.currentAmount) }} VND</p>
-        </div>
-        <div class="metric">
-          <p class="label">Tiến độ</p>
           <p class="value">{{ progress }}%</p>
           <div class="progress">
             <div class="bar" :style="{ width: progress + '%' }"></div>
@@ -80,8 +74,21 @@
 
       <footer class="actions" v-else>
         <button class="btn ghost" @click="goDetail">Chi tiết</button>
-        <button class="btn" @click="goEdit">Chỉnh sửa</button>
-        <button class="btn" @click="goUpdate">Cập nhật</button>
+        <button class="btn" :disabled="isEditDisabled" @click="goEdit">Chỉnh sửa</button>
+        <button
+          class="btn ghost"
+          :disabled="isStatusDisabled"
+          @click="handleStatusChange(statusActions.primary.target)"
+        >
+          {{ statusActions.primary.label }}
+        </button>
+        <button
+          class="btn ghost"
+          :disabled="isStatusDisabled"
+          @click="handleStatusChange(statusActions.secondary.target)"
+        >
+          {{ statusActions.secondary.label }}
+        </button>
         <button class="btn ghost" @click="goAnalytics">Thống kê</button>
       </footer>
     </div>
@@ -127,6 +134,7 @@ const normalized = computed(() => {
 });
 
 const statusUpper = computed(() => normalized.value.status?.toUpperCase() || '');
+const isStaff = computed(() => (props.role || '').toUpperCase() === 'STAFF');
 
 const categoryLabel = computed(() => getCategoryLabel(normalized.value.category));
 
@@ -146,16 +154,7 @@ const daysLeft = computed(() => {
 });
 
 
-const statusText = computed(() => {
-  if (props.role === 'ADMIN') return null;
-  const s = statusUpper.value;
-  if (s === 'COMPLETED') return 'Hoàn thành';
-  if (s === 'IN_PROGRESS') return 'Đang diễn ra';
-  if (s === 'PENDING') return 'Chưa bắt đầu';
-  if (s === 'ON_HOLD') return 'Tạm dừng';
-  if (s === 'CANCELLED') return 'Hủy';
-  return '';
-});
+const statusText = computed(() => null);
 
 const statusMap = {
   PENDING: { label: 'Chưa bắt đầu', color: '#f7b500' },
@@ -212,10 +211,14 @@ onMounted(fetchDetailStaff);
 
 const router = useRouter();
 
+// Reload the page shortly after a status update succeeds to reflect latest data
+const reloadPage = () => setTimeout(() => router.go(0), 300);
+
 const goDetail = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
-  router.push(`/admin/campaigns/${code}`);
+  if ((props.role || '').toUpperCase() === 'STAFF') router.push(`/staff/campaigns/${code}`);
+  else router.push(`/admin/campaigns/${code}`);
 };
 
 const isEditDisabled = computed(() => statusUpper.value === 'COMPLETED' || statusUpper.value === 'CANCELLED');
@@ -256,6 +259,7 @@ const handleStatusChange = async target => {
   try {
     await updateCampaignStatus(code, { campaignStatus: target });
     emit('status-updated', { code, status: target });
+    reloadPage();
   } catch (err) {
     console.error('Update campaign status failed', err);
   } finally {
@@ -265,15 +269,8 @@ const handleStatusChange = async target => {
 const goEdit = () => {
   const code = normalized.value.campaignCode;
   if (!code || isEditDisabled.value) return;
-  if (props.role === 'ADMIN') router.push(`/admin/CampaignsEdit/${code}`);
-  else router.push(`/staff/campaigns/${code}/edit`);
-};
-
-const goUpdate = () => {
-  const code = normalized.value.campaignCode;
-  if (!code) return;
-  if (props.role === 'ADMIN') router.push(`/admin/campaigns/${code}/edit`);
-  else router.push(`/staff/campaigns/${code}/update`);
+  if (isStaff.value) router.push(`/staff/CampaignsEdit/${code}`);
+  else router.push(`/admin/CampaignsEdit/${code}`);
 };
 
 const goAnalytics = () => {

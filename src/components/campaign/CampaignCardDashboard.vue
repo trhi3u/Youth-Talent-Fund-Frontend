@@ -34,7 +34,7 @@
         >
           {{ statusActions.secondary.label }}
         </button>
-        <button class="btn" :disabled="isActionDisabled" @click="goAssign">Phân công</button>
+        <button v-if="!isStaff" class="btn" :disabled="isActionDisabled" @click="goAssign">Phân công</button>
         <button class="btn ghost" @click="goAnalytics">Thống kê</button>
       </footer>
     </div>
@@ -52,7 +52,8 @@ import { updateCampaignStatus } from '@/api/management.api';
 const props = defineProps({
   campaign: { type: Object, default: () => ({}) },
   loading: { type: Boolean, default: false },
-  hideCover: { type: Boolean, default: false }
+  hideCover: { type: Boolean, default: false },
+  role: { type: String, default: 'ADMIN' }
 });
 
 const normalized = computed(() => {
@@ -75,6 +76,8 @@ const normalized = computed(() => {
     staffName: data.staffName || data.staffname || data.assignee || ''
   };
 });
+
+const isStaff = computed(() => (props.role || '').toUpperCase() === 'STAFF');
 
 const statusUpper = computed(() => normalized.value.status?.toUpperCase() || '');
 
@@ -165,10 +168,14 @@ onMounted(fetchDetailStaff);
 
 const router = useRouter();
 
+// Reload the page shortly after a status update succeeds to reflect latest data
+const reloadPage = () => setTimeout(() => router.go(0), 300);
+
 const goDetail = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
-  router.push(`/admin/campaigns/${code}`);
+  if (isStaff.value) router.push(`/staff/campaigns/${code}`);
+  else router.push(`/admin/campaigns/${code}`);
 };
 
 const isEditDisabled = computed(() => statusUpper.value === 'COMPLETED' || statusUpper.value === 'CANCELLED');
@@ -211,6 +218,7 @@ const handleStatusChange = async target => {
   try {
     await updateCampaignStatus(code, { campaignStatus: target });
     emit('status-updated', { code, status: target });
+    reloadPage();
   } catch (err) {
     console.error('Update campaign status failed', err);
   } finally {
@@ -220,7 +228,8 @@ const handleStatusChange = async target => {
 const goEdit = () => {
   const code = normalized.value.campaignCode;
   if (!code || isEditDisabled.value) return;
-  router.push(`/admin/CampaignsEdit/${code}`);
+  if (isStaff.value) router.push(`/staff/CampaignsEdit/${code}`);
+  else router.push(`/admin/CampaignsEdit/${code}`);
 };
 
 const goAnalytics = () => {

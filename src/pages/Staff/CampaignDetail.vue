@@ -1,5 +1,5 @@
 <template>
-  <CampaignDetail role="ADMIN" />
+  <CampaignDetail role="STAFF" :allow-assign="false" />
 </template>
 
 <script setup>

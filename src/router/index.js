@@ -1,6 +1,27 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
+const normalizeRole = role => {
+  if (role && typeof role === 'object') {
+    const candidate = role.authority || role.role || role.name || role.code || role.id || '';
+    return normalizeRole(candidate);
+  }
+  return (role || '').toString().trim().replace(/^ROLE_/i, '').toUpperCase();
+};
+
+const pickRole = roles => {
+  const list = Array.isArray(roles) ? roles.map(normalizeRole) : [];
+  if (list.includes('STAFF')) return 'STAFF';
+  if (list.includes('ADMIN')) return 'ADMIN';
+  if (list.includes('USER')) return 'USER';
+  return normalizeRole(list[0] || roles?.[0]);
+};
+
+const roleMatches = (required, actual) => {
+  if (!required) return true;
+  return normalizeRole(required) === normalizeRole(actual);
+};
+
 const router = createRouter({
   history: createWebHistory(),
   scrollBehavior() {
@@ -39,7 +60,7 @@ const router = createRouter({
         { path: 'campaigns/create', name: 'admin-campaign-create', component: () => import('@/pages/Admin/CampaignCreate.vue') },
         { path: 'campaigns/:id/edit', name: 'admin-campaign-edit', component: () => import('@/components/campaign/CampaignEdit.vue') },
         { path: 'CampaignsEdit/:campaignCode', name: 'admin-campaign-edit-alt', component: () => import('@/components/campaign/CampaignEdit.vue') },
-        { path: 'campaigns/:campaignCode', name: 'admin-campaign-detail', component: () => import('@/pages/Admin/CampaignDetail.vue') },
+        { path: 'campaigns/:campaignCode', name: 'admin-campaign-detail', component: () => import('@/components/campaign/CampaignDetail.vue') },
         { path: 'staff', name: 'admin-staff', component: () => import('@/pages/Admin/StaffManagement.vue') },
         { path: 'staff/:staffCode', name: 'admin-staff-detail', component: () => import('@/pages/Admin/StaffDetail.vue') },
         { path: 'assign', name: 'admin-assign', component: () => import('@/pages/Admin/AssignCampaignToStaff.vue') },
@@ -55,8 +76,9 @@ const router = createRouter({
         { path: 'dashboard', name: 'staff-dashboard', component: () => import('@/pages/Staff/StaffDashboard.vue') },
         { path: 'campaigns', name: 'staff-campaigns', component: () => import('@/pages/Staff/StaffCampaigns.vue') },
         { path: 'campaigns/create', name: 'staff-campaign-create', component: () => import('@/pages/Staff/CampaignCreate.vue') },
-        { path: 'campaigns/:id/edit', name: 'staff-campaign-edit', component: () => import('@/pages/Staff/CampaignEdit.vue') },
-        { path: 'campaigns/:id/update', name: 'staff-update-campaign', component: () => import('@/pages/Staff/StaffUpdateCampaign.vue') },
+        { path: 'campaigns/:id/edit', name: 'staff-campaign-edit', component: () => import('@/components/campaign/CampaignEdit.vue') },
+        { path: 'CampaignsEdit/:campaignCode', name: 'staff-campaign-edit-alt', component: () => import('@/components/campaign/CampaignEdit.vue') },
+        { path: 'campaigns/:campaignCode', name: 'staff-campaign-detail', component: () => import('@/pages/Staff/CampaignDetail.vue') },
         { path: 'reports', name: 'staff-reports', component: () => import('@/pages/Staff/Reports&Analytics.vue') }
       ]
     }
@@ -75,22 +97,29 @@ const roleHome = {
   STAFF: '/staff'
 };
 
-const normalizeRole = role => (role || '').replace(/^ROLE_/i, '').toUpperCase();
-
-const roleMatches = (required, actual) => {
-  if (!required) return true;
-  return normalizeRole(required) === normalizeRole(actual);
-};
-
 
 router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
   const requiredRole = to.meta.requiresRole;
 
+  // Rehydrate auth from storage if store is empty (e.g., page reload)
+  if (!auth.token) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('auth_state_v1') || sessionStorage.getItem('auth_state_v1') || '{}');
+      if (cached?.token) {
+        auth.token = cached.token;
+        auth.role = normalizeRole(cached.role);
+        auth.userInfo = cached.userInfo || null;
+      }
+    } catch (err) {
+      console.warn('[Router] Failed to rehydrate auth state', err);
+    }
+  }
+
   console.log('[Router] Navigation to:', to.path, 'requiredRole:', requiredRole);
 
   const isAuthPage = ['/login', '/adminLogin', '/staffLogin', '/register'].includes(to.path);
-  const currentRole = normalizeRole(auth.role || auth.userInfo?.roles?.[0]);
+  const currentRole = pickRole(auth.userInfo?.roles || [auth.role]);
 
   if (auth.token && isAuthPage) {
     const target = roleHome[currentRole] || '/';

@@ -1,7 +1,7 @@
 <template>
   <section class="page">
     <div class="card box">
-      <h1>Tạo chiến dịch (Staff)</h1>
+      <h1>Tạo chiến dịch mới</h1>
       <CampaignForm v-model="form" :editable-fields="editable" @submit="handleSubmit" @cancel="goBack" />
     </div>
   </section>
@@ -27,6 +27,15 @@ const goBack = () => router.back();
 </script>
 
 <style scoped lang="scss">
-.page { padding: 32px; }
-.box { padding: 24px; display: grid; gap: 12px; }
+.page { 
+  padding: 32px; 
+}
+h1 {
+  margin-bottom: 28px;
+}
+.box {
+  padding: 24px; 
+  display: grid; 
+  gap: 12px; 
+}
 </style>

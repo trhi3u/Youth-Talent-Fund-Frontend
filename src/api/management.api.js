@@ -20,3 +20,14 @@ export const getStaffCampaigns = staffCode =>
 
 export const getMyCampaigns = params =>
   http.get('/management/campaigns', { params });
+
+// Progress update for staff; endpoint may be adjusted to match backend
+export const updateCampaignProgress = (code, payload) =>
+  http.patch(`/management/campaign/${code}/progress`, payload);
+
+// Reports & transactions (staff analytics). Adjust paths if backend differs
+export const fetchReports = params => http.get('/management/reports', { params });
+export const fetchTransactions = params => http.get('/management/transactions', { params });
+
+// Legacy list for staff (alias to getMyCampaigns for compatibility)
+export const listStaffCampaigns = params => getMyCampaigns(params);
