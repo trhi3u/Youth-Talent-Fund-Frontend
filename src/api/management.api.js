@@ -34,3 +34,7 @@ export const listStaffCampaigns = params => getMyCampaigns(params);
 
 // Donation statistics for admin (filter by userCode, campaignCode)
 export const getUserDonationStatisticAdmin = payload => http.post('/management/statistic/donation/user', payload);
+
+// Top donator statistics (admin)
+export const getTopDonatorStatistic = params =>
+  http.get('/management/statistic/top-donator', { params });
