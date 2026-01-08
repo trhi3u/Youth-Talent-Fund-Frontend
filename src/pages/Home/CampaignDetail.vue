@@ -1,5 +1,11 @@
 <template>
   <section class="page">
+    <DonateStatusListener
+      v-if="wsToken"
+      :ws-token="wsToken"
+      @success="handleDonationSuccess"
+      @failed="handleDonationFailed"
+    />
     <div v-if="isDonationMode" class="donation-layout">
       <div class="card hero">
         <div class="hero-cover" :style="coverStyle" />
@@ -30,7 +36,7 @@
         <div class="panel-head">
           <h3 v-if="donationStep === 1">Nhập thông tin quyên góp</h3>
           <h3 v-else-if="donationStep === 2">Quét mã để thanh toán</h3>
-          <h3 v-else>Cảm ơn bạn</h3>
+          <h3 v-else>Cảm ơn bạn đã ủng hộ chiến dịch❤️</h3>
         </div>
 
         <div class="panel-body">
@@ -111,7 +117,8 @@
           </div>
 
           <div v-else class="success">
-            <h4>Cảm ơn bạn đã quyên góp cho chiến dịch</h4>
+            <div class="status-badge" :class="paymentResult.status.toLowerCase() || 'completed'">{{ paymentStatusLabel }}</div>
+            <p class="muted">Mã giao dịch: <strong>{{ paymentResult.code || 'Đang cập nhật' }}</strong></p>
             <button class="btn primary" @click="backToCampaign">Quay lại chiến dịch</button>
           </div>
         </div>
@@ -264,10 +271,11 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createDonation, downloadAttachment, getCampaignDetail, getProofReports, getDonationList } from '@/api/public.api';
+import { createDonation, downloadAttachment, getCampaignDetail, getProofReports, getDonationList, getDonationStatus } from '@/api/public.api';
 import fallbackImage from '@/assets/image/background.png';
 import { useAuthStore } from '@/stores/authStore';
 import DonateQR from '@/components/donate/DonateQR.vue';
+import DonateStatusListener from '@/components/donate/DonateStatusListener.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -290,6 +298,8 @@ const amountDisplay = ref('');
 const qrCode = ref('');
 const checkoutUrl = ref('');
 const isSubmitting = ref(false);
+const wsToken = ref('');
+const paymentResult = ref({ status: '', code: '' });
 const formErrors = ref({});
 const history = ref([]);
 const historyLoading = ref(false);
@@ -311,10 +321,18 @@ const coverStyle = computed(() => ({
 const progress = computed(() => {
   const target = Number(campaign.value.targetAmount || 0);
   const current = Number(campaign.value.currentAmount || 0);
-  if (!target) return 0;
+  if (!target) return current > 0 ? 1 : 0; // hiển thị tối thiểu 1% nếu có quyên góp nhưng chưa có mục tiêu
   const pct = Math.round((current / target) * 100);
   if (pct === 0 && current > 0) return 1; // ensure tiny progress still shows
   return Math.min(100, pct);
+});
+
+const paymentStatusLabel = computed(() => {
+  const s = (paymentResult.value.status || '').toUpperCase();
+  if (['COMPLETED', 'SUCCESS', 'DONE', 'PAID'].includes(s)) return 'Thanh toán thành công';
+  if (s === 'PENDING') return 'Đang xử lý';
+  if (s === 'FAILED') return 'Thất bại';
+  return s || 'Đang cập nhật';
 });
 
 const paginationPages = computed(() => {
@@ -549,6 +567,8 @@ const submitDonation = async () => {
     const res = await createDonation(payload);
     qrCode.value = res?.qrCode || res?.qrCodeUrl || '';
     checkoutUrl.value = res?.checkoutUrl || res?.url || '';
+    wsToken.value = res?.wsToken || '';
+    paymentResult.value = { status: '', code: '' };
     donationStep.value = 2;
   } catch (err) {
     // Có thể log lỗi nếu cần
@@ -562,6 +582,8 @@ function handleCloseQR() {
   donationStep.value = 1;
   qrCode.value = '';
   checkoutUrl.value = '';
+  wsToken.value = '';
+  paymentResult.value = { status: '', code: '' };
 }
 
 const openCheckout = () => {
@@ -573,6 +595,42 @@ const backToCampaign = () => {
   const code = campaignCode.value;
   if (!code) return;
   router.replace(`/campaign/${code}`);
+};
+
+const handleDonationSuccess = payload => {
+  // WS trả về orderCode/transactionCode; gọi API để xác nhận trạng thái và mã giao dịch
+  const useStatus = async payload => {
+    const orderCode = payload?.orderCode || payload?.transactionCode || payload?.code || payload?.message || '';
+    if (!orderCode) {
+      paymentResult.value = { status: 'COMPLETED', code: '' };
+      donationStep.value = 3;
+      wsToken.value = '';
+      return;
+    }
+    try {
+      const res = await getDonationStatus(orderCode);
+      paymentResult.value = {
+        status: res?.status || 'COMPLETED',
+        code: res?.transactionCode || res?.code || orderCode
+      };
+    } catch (err) {
+      paymentResult.value = { status: 'COMPLETED', code: orderCode };
+    } finally {
+      donationStep.value = 3;
+      wsToken.value = '';
+    }
+  };
+
+  return useStatus(payload);
+};
+
+const handleDonationFailed = () => {
+  // Trả về bước nhập hoặc QR khi thất bại; không dùng alert để tránh chặn UI
+  donationStep.value = 1;
+  qrCode.value = '';
+  checkoutUrl.value = '';
+  wsToken.value = '';
+  paymentResult.value = { status: 'FAILED', code: '' };
 };
 
 
@@ -785,18 +843,21 @@ watch(
 
 .chip-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: hidden;
 }
 
 .chip {
-  padding: 8px 12px;
-  border-radius: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
   border: 1px solid rgba(12, 100, 120, 0.2);
   background: #f7fbfd;
   cursor: pointer;
   font-weight: 700;
   color: #0c6478;
+  font-size: 15px;
+  white-space: nowrap;
 }
 
 .full {
@@ -864,6 +925,20 @@ watch(
   display: grid;
   gap: 12px;
 }
+
+.status-badge {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  margin: 0 auto;
+  text-transform: uppercase;
+}
+
+.status-badge.completed { background: #ecfdf3; color: #15803d; }
+.status-badge.success { background: #ecfdf3; color: #15803d; }
+.status-badge.pending { background: #fff7ed; color: #c2410c; }
+.status-badge.failed { background: #fef2f2; color: #b91c1c; }
 
 .layout {
   display: grid;
