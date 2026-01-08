@@ -81,17 +81,11 @@ const submit = async () => {
   try {
     const result = await auth.login({ email: email.value, password: password.value, rememberMe: rememberMe.value });
     const role = normalizeRole(result?.role);
-
-    if (role !== 'USER') {
-      auth.logout();
-      errorMessage.value = 'Không có thông tin người dùng';
-      return;
-    }
-
     successMessage.value = 'Đăng nhập thành công';
+    const target = role === 'ADMIN' ? '/admin' : role === 'STAFF' ? '/staff' : '/';
     setTimeout(() => {
-      router.push('/user');
-    }, 500);
+      router.push(target);
+    }, 400);
   } catch (err) {
     console.error('[Login] Login failed:', err);
     errorMessage.value = err?.message || 'Đăng nhập thất bại, vui lòng thử lại';

@@ -37,8 +37,7 @@ const router = createRouter({
     { path: '/login', name: 'login', component: () => import('@/pages/Auth/Login.vue') },
     { path: '/register', name: 'register', component: () => import('@/pages/Auth/Register.vue') },
     { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/Auth/ForgotPassword.vue') },
-    { path: '/adminLogin', name: 'admin-login', component: () => import('@/pages/Auth/AdminLogin.vue') },
-    { path: '/staffLogin', name: 'staff-login', component: () => import('@/pages/Auth/StaffLogin.vue') },
+
 
     {
       path: '/user',
@@ -81,18 +80,19 @@ const router = createRouter({
         { path: 'campaigns/:campaignCode', name: 'staff-campaign-detail', component: () => import('@/pages/Staff/CampaignDetail.vue') },
         { path: 'reports', name: 'staff-reports', component: () => import('@/pages/Staff/Reports&Analytics.vue') }
       ]
-    }
+    },
+    { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
 });
 
 const roleRedirect = {
   USER: '/login',
-  ADMIN: '/adminLogin',
-  STAFF: '/staffLogin'
+  ADMIN: '/login',
+  STAFF: '/login'
 };
 
 const roleHome = {
-  USER: '/user',
+  USER: '/',
   ADMIN: '/admin',
   STAFF: '/staff'
 };
@@ -118,7 +118,7 @@ router.beforeEach((to, from, next) => {
 
   console.log('[Router] Navigation to:', to.path, 'requiredRole:', requiredRole);
 
-  const isAuthPage = ['/login', '/adminLogin', '/staffLogin', '/register'].includes(to.path);
+  const isAuthPage = ['/login', '/register'].includes(to.path);
   const currentRole = pickRole(auth.userInfo?.roles || [auth.role]);
 
   if (auth.token && isAuthPage) {

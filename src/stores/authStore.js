@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { login as loginApi } from '@/api/auth.api';
+import { getMe } from '@/api/user.api';
 
 const STORAGE_KEY = 'auth_state_v1';
 
@@ -96,7 +97,15 @@ export const useAuthStore = defineStore('auth', {
 
       this.setAuth({ token: accessToken, role, user: userInfo, rememberMe });
       console.log('[AuthStore] Auth state set. Token stored:', Boolean(this.token));
-      return { accessToken, userInfo, role };
+      try {
+        const me = await getMe();
+        const mergedUser = me ? { ...userInfo, ...me } : userInfo;
+        this.setAuth({ token: accessToken, role, user: mergedUser, rememberMe });
+        console.log('[AuthStore] Profile hydrated via getMe');
+      } catch (err) {
+        console.warn('[AuthStore] getMe failed, using login payload user info', err);
+      }
+      return { accessToken, userInfo: this.userInfo, role };
     }
   }
 });
