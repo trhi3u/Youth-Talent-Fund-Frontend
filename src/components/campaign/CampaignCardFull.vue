@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import fallbackImage from '@/assets/image/background.png';
 import { getCategoryLabel } from '@/utils/category';
@@ -133,7 +133,17 @@ const normalized = computed(() => {
   };
 });
 
-const statusUpper = computed(() => normalized.value.status?.toUpperCase() || '');
+const localStatus = ref(props.campaign?.status || 'UNKNOWN');
+watch(
+  () => props.campaign?.status,
+  val => {
+    if (val && val !== localStatus.value) localStatus.value = val;
+  }
+);
+
+const statusValue = computed(() => localStatus.value || normalized.value.status || 'UNKNOWN');
+
+const statusUpper = computed(() => statusValue.value?.toUpperCase() || '');
 const isStaff = computed(() => (props.role || '').toUpperCase() === 'STAFF');
 
 const categoryLabel = computed(() => getCategoryLabel(normalized.value.category));
@@ -211,9 +221,6 @@ onMounted(fetchDetailStaff);
 
 const router = useRouter();
 
-// Reload the page shortly after a status update succeeds to reflect latest data
-const reloadPage = () => setTimeout(() => router.go(0), 300);
-
 const goDetail = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
@@ -259,7 +266,7 @@ const handleStatusChange = async target => {
   try {
     await updateCampaignStatus(code, { campaignStatus: target });
     emit('status-updated', { code, status: target });
-    reloadPage();
+    localStatus.value = target;
   } catch (err) {
     console.error('Update campaign status failed', err);
   } finally {

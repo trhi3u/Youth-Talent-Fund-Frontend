@@ -56,6 +56,7 @@
         :campaign="item"
         role="ADMIN"
         @assign="openAssignModal(item)"
+        @status-updated="fetchCampaigns"
       />
       <div v-if="!campaigns.length" class="empty">
         <span class="empty-icon" aria-hidden="true">📭</span>

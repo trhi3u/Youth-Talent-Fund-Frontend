@@ -106,9 +106,9 @@
               :amount="donationForm.amount"
               :message="donationForm.message"
               :campaign-code="campaignCode"
+              :account-number="donationAccountNumber || '---'"
+              :account-name="donationAccountName || '---'"
               bank-name="Ngân hàng TMCP Quân đội"
-              account-number="VQRQAGETT7544"
-              account-name="VU TUAN NAM"
               @close="handleCloseQR"
               @cancel="handleCloseQR"
             />
@@ -298,6 +298,8 @@ const donationForm = ref({
 const amountDisplay = ref('');
 const qrCode = ref('');
 const checkoutUrl = ref('');
+const donationAccountNumber = ref('');
+const donationAccountName = ref('');
 const isSubmitting = ref(false);
 const wsToken = ref('');
 const paymentResult = ref({ status: '', code: '' });
@@ -482,9 +484,7 @@ const downloadHistoryFile = async file => {
       window.open(file.url, '_blank');
       return;
     }
-    alert('Không tải được file');
   } catch (err) {
-    alert('Không tải được file');
   }
 };
 
@@ -564,6 +564,8 @@ const submitDonation = async () => {
     const res = await createDonation(payload);
     qrCode.value = res?.qrCode || res?.qrCodeUrl || '';
     checkoutUrl.value = res?.checkoutUrl || res?.url || '';
+    donationAccountNumber.value = res?.accountNumber || '';
+    donationAccountName.value = res?.accountName || '';
     wsToken.value = res?.wsToken || '';
     paymentResult.value = { status: '', code: '' };
     donationStep.value = 2;
@@ -579,6 +581,8 @@ function handleCloseQR() {
   donationStep.value = 1;
   qrCode.value = '';
   checkoutUrl.value = '';
+  donationAccountNumber.value = '';
+  donationAccountName.value = '';
   wsToken.value = '';
   paymentResult.value = { status: '', code: '' };
 }
@@ -626,6 +630,8 @@ const handleDonationFailed = () => {
   donationStep.value = 1;
   qrCode.value = '';
   checkoutUrl.value = '';
+  donationAccountNumber.value = '';
+  donationAccountName.value = '';
   wsToken.value = '';
   paymentResult.value = { status: 'FAILED', code: '' };
 };

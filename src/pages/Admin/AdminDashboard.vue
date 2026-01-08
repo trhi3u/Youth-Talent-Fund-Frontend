@@ -69,6 +69,7 @@
               :campaign="item"
               :hideCover="true"
               @assign="handleAssignOpen"
+              @status-updated="handleStatusUpdated"
             />
           </div>
         </div>
@@ -250,6 +251,17 @@ const handleAssign = async ({ staffId, campaignId }) => {
     console.error('Assign campaign failed', err);
   } finally {
     assignLoading.value = false;
+  }
+};
+
+const handleStatusUpdated = async () => {
+  try {
+    await Promise.all([
+      adminStore.fetchCampaigns(),
+      adminStore.fetchCompletedCampaigns()
+    ]);
+  } catch (err) {
+    console.error('Refresh campaigns after status update failed', err);
   }
 };
 

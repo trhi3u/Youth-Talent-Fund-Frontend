@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import fallbackImage from '@/assets/image/background.png';
 import { getCategoryLabel } from '@/utils/category';
@@ -77,9 +77,19 @@ const normalized = computed(() => {
   };
 });
 
+const localStatus = ref(props.campaign?.status || 'UNKNOWN');
+watch(
+  () => props.campaign?.status,
+  val => {
+    if (val && val !== localStatus.value) localStatus.value = val;
+  }
+);
+
+const statusValue = computed(() => localStatus.value || normalized.value.status || 'UNKNOWN');
+
 const isStaff = computed(() => (props.role || '').toUpperCase() === 'STAFF');
 
-const statusUpper = computed(() => normalized.value.status?.toUpperCase() || '');
+const statusUpper = computed(() => statusValue.value?.toUpperCase() || '');
 
 const categoryLabel = computed(() => getCategoryLabel(normalized.value.category));
 
@@ -101,7 +111,7 @@ const daysLeft = computed(() => {
 
 // Hiển thị trạng thái cho user: lấy trực tiếp từ status, không dựa vào ngày
 const statusText = computed(() => {
-  const s = normalized.value.status?.toUpperCase();
+  const s = statusUpper.value;
   if (s === 'COMPLETED') return 'Hoàn thành';
   if (s === 'IN_PROGRESS') return 'Đang diễn ra';
   if (s === 'PENDING') return 'Chưa bắt đầu';
@@ -168,9 +178,6 @@ onMounted(fetchDetailStaff);
 
 const router = useRouter();
 
-// Reload the page shortly after a status update succeeds to reflect latest data
-const reloadPage = () => setTimeout(() => router.go(0), 300);
-
 const goDetail = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
@@ -217,8 +224,8 @@ const handleStatusChange = async target => {
   isStatusLoading.value = true;
   try {
     await updateCampaignStatus(code, { campaignStatus: target });
+    localStatus.value = target;
     emit('status-updated', { code, status: target });
-    reloadPage();
   } catch (err) {
     console.error('Update campaign status failed', err);
   } finally {
