@@ -8,6 +8,7 @@
           <h1>Việt Nam</h1>
           <p class="subtitle">Mỗi đóng góp của bạn là một bước tiến quan trọng giúp các tài năng trẻ hiện thực hóa ước mơ và tạo nên tương lai tươi sáng.</p>
         </div>
+        <DonationRealtimeListener class="hero-realtime" />
       </div>
     </div>
     <div class="stat-row">
@@ -52,6 +53,7 @@ import SearchBar from '@/components/common/SearchBar.vue';
 import { useCampaignStore } from '@/stores/campaignStore';
 import fallbackImage from '@/assets/image/background.png';
 import heroBg from '@/assets/image/background.png';
+import DonationRealtimeListener from '@/components/donate/DonationRealtimeListener.vue';
 
 const stats = [
   { label: 'Tổng quỹ góp', value: '2.5 Tỷ VND', icon: '💰' },
@@ -189,6 +191,10 @@ watch(
   display: grid;
   gap: 24px;
   color: #ffffff;
+}
+
+.hero-realtime {
+  align-self: center;
 }
 
 .hero-top {
