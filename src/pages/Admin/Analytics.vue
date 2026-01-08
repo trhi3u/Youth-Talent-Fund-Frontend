@@ -151,6 +151,7 @@ import {
   getMyCampaigns,
   fetchTransactions
 } from '@/api/management.api';
+import { formatLocal, toUtcString } from '@/utils/date';
 
 const summary = ref({ totalAmount: 0, totalTransactions: 0, totalCampaigns: 0 });
 const campaigns = ref([]);
@@ -169,17 +170,12 @@ const range = reactive({ start: '', end: '' });
 const pageSize = 8;
 
 const formatCurrency = value => `${(Number(value) || 0).toLocaleString('vi-VN')}đ`;
-const formatDateTime = value => {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
-};
+const formatDateTime = value => (value ? formatLocal(value, 'DD/MM/YYYY HH:mm') : '—');
 
 const toApiDate = val => {
   if (!val) return null;
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 19);
+  const iso = toUtcString(val);
+  return iso ? iso.slice(0, 19) : null;
 };
 
 const buildRangeParams = () => {

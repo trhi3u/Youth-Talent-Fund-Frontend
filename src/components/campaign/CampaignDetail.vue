@@ -43,14 +43,6 @@
         <div class="label">% hoàn thành</div>
         <div class="value">{{ percent }}%</div>
       </div>
-      <div class="stat">
-        <div class="label">Lượt quyên góp</div>
-        <div class="value">{{ campaign.totalDonations ?? '---' }}</div>
-      </div>
-      <div class="stat" v-if="campaign.participantCount">
-        <div class="label">Người tham gia</div>
-        <div class="value">{{ campaign.participantCount }}</div>
-      </div>
     </div>
 
 
@@ -72,7 +64,7 @@
         <div v-if="pagedHistory.length" class="history-card-list">
           <div v-for="item in pagedHistory" :key="item.id" class="history-card">
             <div class="history-card-row1">
-              <span class="history-date">{{ formatDate(item.time) }}</span>
+              <span class="history-date">{{ formatLocal(item.time, 'DD/MM/YYYY HH:mm') }}</span>
               <span class="history-type" :class="'type-' + item.type">{{ typeLabel(item.type) }}</span>
             </div>
             <div class="history-card-row2">
@@ -195,7 +187,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { getCategoryLabel } from '@/utils/category';
 import { getCampaignDetail, getProofReports, downloadAttachment } from '@/api/public.api';
 import { createReport, updateCampaignStatus, updateCampaign } from '@/api/management.api';
-import { toUtcString } from '@/utils/date';
+import { toUtcString, formatLocal } from '@/utils/date';
 import AssignCampaignToStaff from '@/pages/Admin/AssignCampaignToStaff.vue';
 import fallbackImage from '@/assets/image/background.png';
 
@@ -316,7 +308,7 @@ onMounted(() => {
 
 const categoryLabel = computed(() => getCategoryLabel(campaign.value?.category));
 const statusUpper = computed(() => campaign.value?.status?.toUpperCase() || '');
-const formatDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '---';
+const formatDate = d => d ? formatLocal(d, 'DD/MM/YYYY') : '---';
 const formatCurrency = v => v ? v.toLocaleString('vi-VN') : '0';
 const percent = computed(() => {
   if (!campaign.value) return 0;
@@ -423,11 +415,13 @@ const pagedHistory = computed(() => history.value);
 
 const mapHistoryItem = item => {
   const attachments = item.attachments || item.files || [];
+  const author = item.author || {};
+  const creatorName = author.fullName || author.name || item.creator || item.createdBy || item.creatorName || item.staffName || '---';
   return {
     id: item.id || item.reportId || item.code || item.campaignReportId || Math.random().toString(36).slice(2),
     time: item.time || item.createdAt || item.createdDate || item.created || item.updatedAt || null,
     type: item.type || item.reportType || item.proofReportType || '',
-    creator: item.creator || item.createdBy || item.creatorName || item.staffName || '---',
+    creator: creatorName,
     transactionAmount: item.transactionAmount ?? item.amount ?? item.money ?? null,
     content: item.content || item.description || item.note || '',
     files: attachments.map(f => ({

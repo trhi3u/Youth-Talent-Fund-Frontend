@@ -45,7 +45,16 @@ const staffMenu = [
 
 const items = computed(() => (props.role === 'ADMIN' ? adminMenu : staffMenu));
 
-const isActive = target => route.path.startsWith(target);
+const isCampaignListTarget = target => /\/(admin|staff)\/campaigns$/.test(target);
+
+const isActive = target => {
+  if (isCampaignListTarget(target)) {
+    // Do not highlight list when user is on the create page; highlight detail/edit pages
+    if (/\/campaigns\/create($|\/)/.test(route.path)) return false;
+    return route.path.startsWith(target);
+  }
+  return route.path.startsWith(target);
+};
 </script>
 
 <style scoped lang="scss">

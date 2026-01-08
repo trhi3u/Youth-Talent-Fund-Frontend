@@ -276,6 +276,7 @@ import fallbackImage from '@/assets/image/background.png';
 import { useAuthStore } from '@/stores/authStore';
 import DonateQR from '@/components/donate/DonateQR.vue';
 import DonateStatusListener from '@/components/donate/DonateStatusListener.vue';
+import { formatLocal } from '@/utils/date';
 
 const route = useRoute();
 const router = useRouter();
@@ -380,12 +381,8 @@ const donateLabel = computed(() => {
 });
 
 const formatCurrency = value => (Number(value) || 0).toLocaleString('vi-VN');
-const formatDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '---';
-const formatDateTime = d => {
-  if (!d) return '---';
-  const dateObj = new Date(d);
-  return `${dateObj.toLocaleDateString('vi-VN')} ${dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
-};
+const formatDate = d => d ? formatLocal(d, 'DD/MM/YYYY') : '---';
+const formatDateTime = d => (d ? formatLocal(d, 'DD/MM/YYYY HH:mm') : '---');
 
 const normalizeCampaign = data => {
   if (!data) return {};

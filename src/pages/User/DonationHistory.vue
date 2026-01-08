@@ -35,12 +35,17 @@
           <span>Lời nhắn</span>
           <span>Trạng thái</span>
         </div>
-        <div class="table-row" v-for="item in donations" :key="item.id || item.code">
-          <span class="title">{{ item.campaignName || item.campaignId || 'Chiến dịch' }}<small v-if="item.isAnonymous" class="pill">Ẩn danh</small></span>
+        <div class="table-row" v-for="item in donations" :key="item.id || item.code || item.campaignCode">
+          <span class="title">
+            <button class="campaign-link" :disabled="!campaignCode(item)" @click="goToCampaign(campaignCode(item))">
+              {{ campaignCode(item) || 'Chiến dịch' }}
+            </button>
+            <small v-if="item.isAnonymous" class="pill">Ẩn danh</small>
+          </span>
           <span class="amount">{{ formatCurrency(item.amount) }}</span>
-          <span class="date">{{ formatDate(item.date) }}</span>
-          <span class="message">{{ item.message || '—' }}</span>
-          <span class="status" :data-status="(item.status || 'SUCCESS').toLowerCase()">{{ statusText(item.status) }}</span>
+          <span class="date">{{ formatDate(item.createdAt) }}</span>
+          <span class="message">{{ donationMessage(item) || '—' }}</span>
+          <span class="status" :data-status="(item.paymentStatus || item.status || 'SUCCESS').toLowerCase()">{{ statusText(item.status, item.paymentStatus) }}</span>
         </div>
       </div>
 
@@ -62,15 +67,21 @@
 
 <script setup>
 import { computed, ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 import { getUserDonationStatistic } from '@/api/auth.api';
+import { formatLocal } from '@/utils/date';
 
 const authStore = useAuthStore();
 const userStore = useUserStore();
+const router = useRouter();
 
 const loading = computed(() => userStore.loadingDonations);
-const donations = computed(() => userStore.donations || []);
+const donations = computed(() => {
+  const list = userStore.donations || [];
+  return list.filter(item => (item.paymentStatus || '').toUpperCase() === 'PAID');
+});
 const page = computed(() => userStore.donationPage || { totalPages: 0, totalElements: 0 });
 const pageNumber = ref(0);
 const error = computed(() => userStore.donationError);
@@ -90,17 +101,21 @@ const campaignCount = computed(() => {
 });
 
 const formatCurrency = value => (Number(value) || 0).toLocaleString('vi-VN') + 'đ';
-const formatDate = value => {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN');
-};
+const formatDate = value => (value ? formatLocal(value, 'DD/MM/YYYY') : '—');
+const campaignCode = item => item?.campaignCode || item?.campaignId || item?.campaignName || '';
+const donationMessage = item => item?.message || item?.donationMessage || item?.note || '';
 
-const statusText = status => {
-  const s = (status || 'SUCCESS').toLowerCase();
+const statusText = (status, paymentStatus) => {
+  const s = (paymentStatus || status || 'SUCCESS').toLowerCase();
   if (s === 'pending') return 'Đang xử lý';
   if (s === 'failed') return 'Thất bại';
+  if (s === 'paid') return 'Đã thanh toán';
   return 'Thành công';
+};
+
+const goToCampaign = code => {
+  if (!code) return;
+  router.push({ name: 'campaign-detail', params: { id: code } });
 };
 
 const buildPayload = () => {
@@ -272,6 +287,23 @@ onMounted(() => {
   gap: 6px;
   font-weight: 700;
   color: var(--primary-strong);
+}
+
+.campaign-link {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--primary-strong);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.campaign-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  text-decoration: none;
 }
 
 .amount {

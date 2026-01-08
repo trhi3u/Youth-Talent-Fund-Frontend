@@ -192,13 +192,9 @@ const getDaysRemaining = campaign => {
 };
 
 const totals = computed(() => {
-  const total = campaigns.value.length;
-  const active = campaigns.value.filter(c => {
-    const daysLeft = getDaysRemaining(c);
-    if (daysLeft === null) return true;
-    return Number(daysLeft) > 0;
-  }).length;
-  const completed = total - active;
+  const total = adminStore.totalCampaigns || campaigns.value.length;
+  const completed = adminStore.totalCompleted || 0;
+  const active = Math.max(total - completed, 0);
   const donations = campaigns.value.reduce((sum, c) => sum + (c.currentAmount || 0), 0);
 
   return {
@@ -260,7 +256,10 @@ const handleAssign = async ({ staffId, campaignId }) => {
 const fetchData = async () => {
   loading.value = true;
   try {
-    await adminStore.fetchCampaigns();
+    await Promise.all([
+      adminStore.fetchCampaigns(),
+      adminStore.fetchCompletedCampaigns()
+    ]);
   } catch (err) {
     console.error('Fetch admin campaigns failed', err);
   } finally {

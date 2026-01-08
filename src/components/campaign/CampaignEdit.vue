@@ -8,11 +8,11 @@
         <div class="form-row">
           <label class="field">
             <span>Tiêu đề *</span>
-            <input v-model="form.title" required />
+            <input v-model="form.title" required :disabled="isInProgress" :class="{ locked: isInProgress }" />
           </label>
           <label class="field">
             <span>Danh mục *</span>
-            <select v-model="form.category" required>
+            <select v-model="form.category" required :disabled="isInProgress" :class="{ locked: isInProgress }">
               <option value="" disabled>Chọn danh mục</option>
               <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
@@ -34,14 +34,14 @@
           </label>
           <label class="field">
             <span>Địa điểm</span>
-            <input v-model="form.location" />
+            <input v-model="form.location" :disabled="isInProgress" :class="{ locked: isInProgress }" />
           </label>
         </div>
 
         <div class="form-row">
           <label class="field">
             <span>Ngày bắt đầu *</span>
-            <input type="datetime-local" v-model="form.startDate" required />
+            <input type="datetime-local" v-model="form.startDate" required :disabled="isInProgress" :class="{ locked: isInProgress }" />
           </label>
           <label class="field">
             <span>Ngày kết thúc *</span>
@@ -55,12 +55,12 @@
 
         <label class="field">
           <span>Mô tả ngắn *</span>
-          <textarea rows="3" v-model="form.description" required />
+          <textarea rows="3" v-model="form.description" required :disabled="isInProgress" :class="{ locked: isInProgress }" />
         </label>
 
         <label class="field">
           <span>Câu chuyện / Nội dung chính</span>
-          <textarea rows="6" v-model="form.story" />
+          <textarea rows="6" v-model="form.story" :disabled="isInProgress" :class="{ locked: isInProgress }" />
         </label>
 
         <div v-if="errors.length" class="errors">
@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getCategoryOptions } from '@/utils/category';
 import { toUtcString } from '@/utils/date';
@@ -99,6 +99,7 @@ const form = reactive({
   endDate: '',
   category: '',
   coverImage: '',
+  status: ''
 });
 const loaded = ref(false);
 const errors = ref([]);
@@ -167,15 +168,18 @@ const fetchDetail = async () => {
     startDate: res.startDate ? res.startDate.slice(0, 16) : '',
     endDate: res.endDate ? res.endDate.slice(0, 16) : '',
     coverImage: res.coverImage || '',
-    category: res.category || '', // Đảm bảo chọn đúng danh mục
+    category: res.category || '',
+    status: res.status || res.campaignStatus || ''
   });
   loaded.value = true;
 };
 
+const isInProgress = computed(() => (form.status || '').toString().toUpperCase() === 'IN_PROGRESS');
+
 onMounted(fetchDetail);
 
 const buildPayload = () => {
-  let assigneeCode = '';
+  let assigneeCode = null;
   const data = {
     title: form.title,
     description: form.description,
@@ -261,6 +265,14 @@ const goBack = () => router.back();
     font: inherit;
     color: inherit;
     resize: none;
+  }
+
+  input.locked,
+  select.locked,
+  textarea.locked {
+    font-weight: 800;
+    background: #f1f5f8;
+    color: #0b6c7f;
   }
 }
 
