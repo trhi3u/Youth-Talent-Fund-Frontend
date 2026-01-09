@@ -283,8 +283,8 @@ const goEdit = () => {
 const goAnalytics = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
-  if (props.role === 'ADMIN') router.push({ path: '/admin/analytics', query: { campaign: code } });
-  else router.push({ path: '/staff/reports', query: { campaign: code } });
+  if ((props.role || '').toUpperCase() === 'ADMIN') router.push(`/admin/campaigns/${code}/analyst`);
+  else router.push(`/staff/campaigns/${code}/analyst`);
 };
 
 const goAssign = () => {

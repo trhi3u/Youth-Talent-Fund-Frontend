@@ -242,7 +242,8 @@ const goEdit = () => {
 const goAnalytics = () => {
   const code = normalized.value.campaignCode;
   if (!code) return;
-  router.push({ path: '/admin/analytics', query: { campaign: code } });
+  if (isStaff.value) router.push(`/staff/campaigns/${code}/analyst`);
+  else router.push(`/admin/campaigns/${code}/analyst`);
 };
 
 const goAssign = () => {

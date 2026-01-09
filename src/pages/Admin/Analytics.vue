@@ -3,19 +3,20 @@
     <header class="hero">
       <div>
         <h1>Thống kê quyên góp</h1>
-        <p class="hint">Tổng quan và sao kê giao dịch theo từng chiến dịch</p>
       </div>
       <div class="filters">
-        <label class="field">
-          <span>Ngày bắt đầu</span>
-          <input type="datetime-local" v-model="range.start" />
-        </label>
-        <label class="field">
-          <span>Ngày kết thúc</span>
-          <input type="datetime-local" v-model="range.end" />
-        </label>
-        <button class="btn ghost" @click="resetRange">Xóa lọc</button>
-        <button class="btn primary" @click="reloadAll">Áp dụng</button>
+        <div class="field">
+          <label>Ngày bắt đầu</label>
+          <input type="date" v-model="range.start" />
+        </div>
+        <div class="field">
+          <label>Ngày kết thúc</label>
+          <input type="date" v-model="range.end" />
+        </div>
+        <div class="actions-inline">
+          <button class="btn primary" @click="applyRange">Áp dụng</button>
+          <button class="btn ghost" @click="resetRange">Xóa lọc</button>
+        </div>
       </div>
     </header>
 
@@ -31,9 +32,9 @@
         <p class="hint">Bao gồm tất cả trạng thái</p>
       </article>
       <article class="card metric">
-        <p class="label">Chiến dịch</p>
-        <p class="value">{{ summary.totalCampaigns }}</p>
-        <p class="hint">Đang thống kê</p>
+        <p class="label">Người ủng hộ</p>
+        <p class="value">{{ summary.totalDonors }}</p>
+        <p class="hint">Bao gồm khách vãng lai</p>
       </article>
     </section>
 
@@ -153,7 +154,7 @@ import {
 } from '@/api/management.api';
 import { formatLocal, toUtcString } from '@/utils/date';
 
-const summary = ref({ totalAmount: 0, totalTransactions: 0, totalCampaigns: 0 });
+const summary = ref({ totalAmount: 0, totalTransactions: 0, totalDonors: 0 });
 const campaigns = ref([]);
 const campaignPage = ref({ number: 0, totalPages: 0 });
 const campaignLoading = ref(false);
@@ -188,27 +189,36 @@ const buildRangeParams = () => {
 };
 
 const statusLabel = status => {
-  const s = (status || '').toString().toUpperCase();
-  if (['COMPLETED', 'SUCCESS', 'DONE', 'FINISHED'].includes(s)) return 'Hoàn thành';
-  if (['IN_PROGRESS', 'ACTIVE', 'RUNNING', 'ONGOING', 'PROCESSING'].includes(s)) return 'Đang xử lý';
-  if (['PENDING', 'CREATED'].includes(s)) return 'Chờ xác nhận';
-  if (['FAILED', 'CANCEL', 'CANCELED', 'REJECTED'].includes(s)) return 'Thất bại';
-  return s || 'Khác';
+  const s = (status || '').toString().toUpperCase().replace(/[-\s]/g, '_');
+  if (['PENDING', 'CREATED'].includes(s)) return 'Chưa bắt đầu';
+  if (['IN_PROGRESS', 'ACTIVE', 'RUNNING', 'ONGOING', 'PROCESSING'].includes(s)) return 'Đang diễn ra';
+  if (['ON_HOLD', 'PAUSED', 'HOLD'].includes(s)) return 'Tạm dừng';
+  if (['COMPLETED', 'SUCCESS', 'DONE', 'FINISHED', 'EARLY_FINISHED'].includes(s)) return 'Đã hoàn thành';
+  if (['CANCELLED', 'CANCEL', 'CANCELED', 'REJECTED'].includes(s)) return 'Hủy';
+  return 'Khác';
 };
 
 const statusClass = status => {
-  const s = (status || '').toString().toUpperCase();
-  if (['COMPLETED', 'SUCCESS', 'DONE', 'FINISHED'].includes(s)) return 'success';
-  if (['FAILED', 'CANCEL', 'CANCELED', 'REJECTED'].includes(s)) return 'danger';
-  if (['PENDING', 'CREATED'].includes(s)) return 'warning';
+  const s = (status || '').toString().toUpperCase().replace(/[-\s]/g, '_');
+  if (['PENDING', 'CREATED'].includes(s)) return 'pending';
+  if (['IN_PROGRESS', 'ACTIVE', 'RUNNING', 'ONGOING', 'PROCESSING'].includes(s)) return 'in-progress';
+  if (['ON_HOLD', 'PAUSED', 'HOLD'].includes(s)) return 'on-hold';
+  if (['COMPLETED', 'SUCCESS', 'DONE', 'FINISHED', 'EARLY_FINISHED'].includes(s)) return 'completed';
+  if (['CANCELLED', 'CANCEL', 'CANCELED', 'REJECTED'].includes(s)) return 'cancelled';
   return 'info';
 };
 
 const mapSummary = data => {
-  const totalAmount = Number(data?.totalAmount ?? data?.totalDonation ?? data?.donated ?? 0);
-  const totalTransactions = Number(data?.totalTransactions ?? data?.transactionCount ?? data?.count ?? 0);
-  const totalCampaigns = Number(data?.totalCampaigns ?? data?.campaignCount ?? campaignPage.value.totalElements ?? 0);
-  return { totalAmount, totalTransactions, totalCampaigns };
+  const totalAmount = Number(
+    data?.totalAmount ?? data?.totalReceived ?? data?.donated ?? data?.totalDonationAmount ?? 0
+  );
+  const totalTransactions = Number(
+    data?.totalTransactions ?? data?.transactionCount ?? data?.count ?? data?.totalDonation ?? 0
+  );
+  const totalDonors = Number(
+    data?.totalDonors ?? data?.donorCount ?? data?.uniqueDonors ?? data?.guestDonation ?? 0
+  );
+  return { totalAmount, totalTransactions, totalDonors };
 };
 
 const fetchSummary = async () => {
@@ -234,16 +244,13 @@ const fetchTop = async () => {
 const fetchCampaigns = async (page = 0) => {
   campaignLoading.value = true;
   try {
-    const res = await getMyCampaigns({ page, size: pageSize });
+    const res = await getMyCampaigns({ page, size: pageSize, ...buildRangeParams() });
     campaigns.value = res?.content || res || [];
     campaignPage.value = {
       number: res?.number ?? page,
       totalPages: res?.totalPages ?? 1,
       totalElements: res?.totalElements ?? campaigns.value.length
     };
-    if (!summary.value.totalCampaigns && campaignPage.value.totalElements) {
-      summary.value = { ...summary.value, totalCampaigns: campaignPage.value.totalElements };
-    }
   } catch (err) {
     campaigns.value = [];
     campaignPage.value = { number: 0, totalPages: 0, totalElements: 0 };
@@ -308,6 +315,10 @@ const resetRange = () => {
   reloadAll();
 };
 
+const applyRange = () => {
+  reloadAll();
+};
+
 const reloadAll = () => {
   fetchSummary();
   fetchTop();
@@ -337,16 +348,14 @@ onMounted(() => {
   align-items: flex-end;
 }
 
+.filters { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.actions-inline { display: flex; gap: 8px; }
+
 .eyebrow { margin: 0; font-size: 12px; font-weight: 700; color: #0f766e; }
 h1 { margin: 2px 0; }
 .hint { margin: 4px 0 0; color: #5b7083; }
 
-.filters {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
+
 
 .field { display: grid; gap: 4px; font-size: 13px; color: #334155; }
 .field input {
@@ -396,9 +405,11 @@ h1 { margin: 2px 0; }
 .table.dense .table-row { grid-template-columns: 1.6fr 1fr 1.2fr 0.8fr; background: #fff; border: 1px solid #e2e8f0; }
 
 .status { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; text-align: center; display: inline-block; }
-.status.success { background: #ecfdf3; color: #15803d; }
-.status.warning { background: #fff7ed; color: #c2410c; }
-.status.danger { background: #fef2f2; color: #b91c1c; }
+.status.pending { background: #fff8e1; color: #f7b500; }
+.status.in-progress { background: #e6f4ea; color: #1a7f37; }
+.status.on-hold { background: #fff8e1; color: #f7b500; }
+.status.completed { background: #fdeaea; color: #e53935; }
+.status.cancelled { background: #f6e9fb; color: #8e24aa; }
 .status.info { background: #eff6ff; color: #1d4ed8; }
 
 .btn { border: none; cursor: pointer; padding: 10px 14px; border-radius: 10px; font-weight: 700; }

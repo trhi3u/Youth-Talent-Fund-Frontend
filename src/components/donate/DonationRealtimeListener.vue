@@ -1,5 +1,5 @@
 <template>
-  <div class="realtime-panel">
+  <div v-if="visible" class="realtime-panel">
     <div class="panel-head">
       <h3>Hoạt động mới nhất</h3>
     </div>
@@ -31,6 +31,8 @@ import { useWebSocket } from '@/composables/useWebSocket';
 const { connect, listenAllDonations, disconnect } = useWebSocket();
 
 const donations = ref([]);
+const visible = ref(false);
+let hideTimer = null;
 let subscription = null;
 
 const donorName = item => item?.donorName || 'Người ủng hộ ẩn danh';
@@ -47,6 +49,11 @@ const formatTime = value => {
 const handleDonation = payload => {
   if (!payload) return;
   donations.value = [payload, ...donations.value].slice(0, 30);
+  visible.value = true;
+  if (hideTimer) clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    visible.value = false;
+  }, 60 * 1000);
 };
 
 onMounted(async () => {
@@ -57,6 +64,10 @@ onMounted(async () => {
 onUnmounted(() => {
   if (subscription && typeof subscription.unsubscribe === 'function') {
     subscription.unsubscribe();
+  }
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
   }
   disconnect();
 });

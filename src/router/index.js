@@ -60,6 +60,7 @@ const router = createRouter({
         { path: 'campaigns/:id/edit', name: 'admin-campaign-edit', component: () => import('@/components/campaign/CampaignEdit.vue') },
         { path: 'CampaignsEdit/:campaignCode', name: 'admin-campaign-edit-alt', component: () => import('@/components/campaign/CampaignEdit.vue') },
         { path: 'campaigns/:campaignCode', name: 'admin-campaign-detail', component: () => import('@/components/campaign/CampaignDetail.vue') },
+        { path: 'campaigns/:campaignCode/analyst', name: 'admin-campaign-analyst', component: () => import('@/components/campaign/CampaignAnalyst.vue') },
         { path: 'staff', name: 'admin-staff', component: () => import('@/pages/Admin/StaffManagement.vue') },
         { path: 'staff/:staffCode', name: 'admin-staff-detail', component: () => import('@/pages/Admin/StaffDetail.vue') },
         { path: 'assign', name: 'admin-assign', component: () => import('@/pages/Admin/AssignCampaignToStaff.vue') },
@@ -78,6 +79,7 @@ const router = createRouter({
         { path: 'campaigns/:id/edit', name: 'staff-campaign-edit', component: () => import('@/components/campaign/CampaignEdit.vue') },
         { path: 'CampaignsEdit/:campaignCode', name: 'staff-campaign-edit-alt', component: () => import('@/components/campaign/CampaignEdit.vue') },
         { path: 'campaigns/:campaignCode', name: 'staff-campaign-detail', component: () => import('@/pages/Staff/CampaignDetail.vue') },
+        { path: 'campaigns/:campaignCode/analyst', name: 'staff-campaign-analyst', component: () => import('@/components/campaign/CampaignAnalyst.vue') },
         { path: 'reports', name: 'staff-reports', component: () => import('@/pages/Staff/Reports&Analytics.vue') }
       ]
     },

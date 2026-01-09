@@ -7,7 +7,7 @@
         <div class="stats">
           <div class="stat-item">
             <span class="stat-label">Tổng cộng:</span>
-            <span class="stat-value">{{ totalElements }} Chiến dịch</span>
+            <span class="stat-value">{{ displayTotal }} Chiến dịch</span>
           </div>
         </div>
         <div class="filter-bar">
@@ -50,8 +50,8 @@
       </div>
     </div>
     <div class="grid" v-if="!loading">
-      <CampaignCard v-for="item in campaigns" :key="item.code" :campaign="item" />
-      <div v-if="!campaigns.length" class="empty">
+      <CampaignCard v-for="item in filteredCampaigns" :key="item.code || item.id" :campaign="item" />
+      <div v-if="!filteredCampaigns.length" class="empty">
         <span class="empty-icon" aria-hidden="true">📭</span>
         <p>Không có chiến dịch phù hợp</p>
       </div>
@@ -76,17 +76,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import CampaignCard from '@/components/campaign/CampaignCard.vue';
 import { getCategoryOptions } from '@/utils/category';
 import { getCampaigns } from '@/api/public.api';
+
+const route = useRoute();
 
 const campaigns = ref([]);
 const page = ref(0);
 const size = ref(10);
 const totalPages = ref(0);
 const totalElements = ref(0);
-const keyword = ref('');
+const keyword = ref((route.query.keyword || '').toString());
 const status = ref('');
 const category = ref('');
 const loading = ref(false);
@@ -151,6 +154,33 @@ function onPage(p) {
     fetchCampaigns();
   }
 }
+
+const filteredCampaigns = computed(() => {
+  const list = campaigns.value || [];
+  const kw = (keyword.value || '').trim().toLowerCase();
+  if (!kw) return list;
+  const tokens = kw.split(/\s+/).filter(Boolean);
+  if (!tokens.length) return list;
+  return list.filter(item => {
+    const normalize = str => str.normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase();
+    const title = normalize((item.title || item.name || '').toString());
+    return tokens.every(t => title.includes(normalize(t)));
+  });
+});
+
+const displayTotal = computed(() => {
+  const kw = (keyword.value || '').trim();
+  return kw ? filteredCampaigns.value.length : totalElements.value;
+});
+
+watch(
+  () => route.query.keyword,
+  val => {
+    keyword.value = (val || '').toString();
+    page.value = 0;
+    fetchCampaigns();
+  }
+);
 
 const paginationPages = computed(() => {
   const total = totalPages.value;
